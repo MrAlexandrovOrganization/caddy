@@ -1,0 +1,3 @@
+{$DOMAIN} {
+    reverse_proxy notes-bot-telegram:8080
+}

@@ -1,0 +1,33 @@
+networks:
+  caddy-net:
+    name: caddy-net
+
+services:
+  caddy:
+    container_name: caddy
+    hostname: caddy
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DOMAIN=${DOMAIN}
+    networks:
+      - caddy-net
+    extends:
+      file: docker-compose.base.yml
+      service: base
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.2"
+
+volumes:
+  caddy_data:
+  caddy_config:
