@@ -32,6 +32,8 @@ make up
 | `OPENCODE_DOMAIN` | VPN-only HTTPS для OpenCode |
 | `GRAFANA_DOMAIN` | VPN-only HTTPS для Grafana |
 | `SUBSCRIPTIONS_DOMAIN` | Публичный HTTPS origin подписок |
+| `TRANSCRIBER_WORKERS_DOMAIN` | Public TLS/gRPC endpoint for worker-only RPCs |
+| `OPENCODE_ACCESS_POLICY`, `GRAFANA_ACCESS_POLICY` | `vpn_only` (default), or explicit `public_access` to preserve an existing deployment policy |
 | `VPN_IPV4_CIDR`, `VPN_IPV6_CIDR` | Разрешённые VPN-подсети, совпадающие с prefixes Headscale |
 
 В `headscale/config.yaml` задаются `server_url`, MagicDNS `base_domain`,
@@ -74,9 +76,10 @@ Headscale API доступен внутри сети по `headscale:8080`, admi
 | `caddy-opencode-net` | `opencode-ingress:4096` |
 | `caddy-grafana-net` | `grafana-ingress:3000` |
 | `caddy-publisher-net` | `publisher-ingress:8080` |
+| `caddy-transcriber-net` | `transcriber-worker-api:50056`, worker-only gRPC via h2c |
 | `caddy-metrics-net` | Prometheus → `caddy-metrics:9180/metrics` |
 
-Последние четыре сети внутренние; ими владеет Compose этого проекта.
+Все сети, кроме `caddy-net`, внутренние; ими владеет Compose этого проекта.
 Приложения подключают их как external. При первом развёртывании запускайте
 этот стек раньше потребителей. Метрики привязаны только к metrics-интерфейсу,
 порт 9180 не опубликован на хосте.
@@ -113,7 +116,7 @@ docker exec headscale headscale nodes list
 ## Доставка и переход с прежней конфигурации
 
 CI запускает `make check` на PR и push в main; после успешной проверки push
-в main запускает SSH deployment (`git pull --ff-only`, `make up`).
+в main запускает SSH deployment (clean checkout, exact tested SHA via fast-forward, `make up`).
 
 Перед первым деплоем этой версии необходимо на VM:
 
@@ -136,3 +139,19 @@ CI запускает `make check` на PR и push в main; после успе�
 При откате восстановите согласованную пару исходников и приватных конфигов,
 проверьте конфигурацию и выполните `make up`. Не удаляйте volumes с данными и
 сертификатами. Резервные копии должны храниться вне Git с ограниченным доступом.
+
+## Transcription workers
+
+The worker hostname accepts only POST `/whisper.WorkerService/*` over TLS/HTTP2.
+Caddy proxies h2c to the dedicated internal `caddy-transcriber-net` interface;
+no backend worker port is published. Each worker authenticates inside the
+application with its own bearer token, scoped to its worker ID and leases.
+Submission/status RPCs are not exposed by this site. Access/error logs omit
+request/response objects including Authorization headers.
+
+Set `TRANSCRIBER_WORKERS_DOMAIN` in the private `caddy.env`. Run this stack first
+to create its external network before enabling transcriber's TLS overlay.
+Changes to container environment require `make up`, not only `make reload`.
+Existing deployments with public OpenCode/Grafana may explicitly preserve that
+policy using the two `*_ACCESS_POLICY=public_access` settings; examples continue
+to require VPN. Never infer a change of access policy from deployment alone.

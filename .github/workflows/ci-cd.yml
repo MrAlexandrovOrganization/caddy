@@ -28,6 +28,10 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
+            set -eu
             cd ${{ secrets.VM_PROJECT_PATH }}
-            git pull --ff-only
+            test -z "$(git status --porcelain)"
+            git fetch origin ${{ github.sha }}
+            git merge --ff-only ${{ github.sha }}
+            test "$(git rev-parse HEAD)" = '${{ github.sha }}'
             make up

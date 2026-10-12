@@ -40,21 +40,44 @@ https://{$HEADSCALE_DOMAIN}, https://{$HEADSCALE_LEGACY_DOMAIN}:8443 {
 	respond @outside_vpn "VPN access required" 403
 }
 
+# Explicit per-site migration setting; normal examples retain VPN-only access.
+(public_access) {
+	# Application authentication is still enforced by the upstream.
+}
+
 https://{$OPENCODE_DOMAIN} {
 	import safe_access opencode
-	import vpn_only
+	import {$OPENCODE_ACCESS_POLICY:vpn_only}
 	reverse_proxy opencode-ingress:4096
 }
 
 https://{$GRAFANA_DOMAIN} {
 	import safe_access grafana
-	import vpn_only
+	import {$GRAFANA_ACCESS_POLICY:vpn_only}
 	reverse_proxy grafana-ingress:3000
 }
 
 https://{$SUBSCRIPTIONS_DOMAIN} {
 	import safe_access subscriptions
 	reverse_proxy publisher-ingress:8080
+}
+
+# Worker API only; audio submission/client API remains private.
+https://{$TRANSCRIBER_WORKERS_DOMAIN} {
+	import safe_access transcriber-workers
+	@worker_rpc {
+		method POST
+		path /whisper.WorkerService/*
+	}
+	handle @worker_rpc {
+		request_body {
+			max_size 8MB
+		}
+		reverse_proxy h2c://transcriber-worker-api:50056
+	}
+	handle {
+		respond 404
+	}
 }
 
 # Bind only the dedicated metrics interface; do not expose the admin API.
