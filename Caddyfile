@@ -69,6 +69,26 @@ https://{$TRANSCRIBER_WORKERS_DOMAIN} {
 		method POST
 		path /whisper.WorkerService/*
 	}
+	@clip_worker_rpc {
+		method POST
+		path /embed.WorkerService/*
+	}
+	handle @clip_worker_rpc {
+		request_body {
+			max_size 20MB
+		}
+		reverse_proxy h2c://clip-embedder:50057
+	}
+	@stash_worker_rpc {
+		method POST
+		path /stash.processing.v1.WorkerService/*
+	}
+	handle @stash_worker_rpc {
+		request_body {
+			max_size 20MB
+		}
+		reverse_proxy h2c://stash:50058
+	}
 	handle @worker_rpc {
 		request_body {
 			max_size 8MB

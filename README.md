@@ -155,3 +155,12 @@ Changes to container environment require `make up`, not only `make reload`.
 Existing deployments with public OpenCode/Grafana may explicitly preserve that
 policy using the two `*_ACCESS_POLICY=public_access` settings; examples continue
 to require VPN. Never infer a change of access policy from deployment alone.
+
+### Stash and CLIP workers
+
+The existing worker hostname also routes only POST worker RPCs for
+`/stash.processing.v1.WorkerService/*` to `stash:50058` and
+`/embed.WorkerService/*` to `clip-embedder:50057` on caddy-transcriber-net.
+Each backend authenticates independently using a separate per-worker token
+registry. Consumer APIs remain private. No hostname, DNS, access policy or
+certificate change is required. The request body limit is 20 MB for these RPCs.
