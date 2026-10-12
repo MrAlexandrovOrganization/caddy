@@ -7,9 +7,17 @@ on:
     branches: [main]
 
 jobs:
+  check:
+    name: Validate configuration
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: make check
+
   deploy:
     name: Deploy to VM
     runs-on: ubuntu-24.04
+    needs: check
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
@@ -21,5 +29,5 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             cd ${{ secrets.VM_PROJECT_PATH }}
-            git pull
+            git pull --ff-only
             make up

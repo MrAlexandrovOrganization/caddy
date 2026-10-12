@@ -1,24 +1,42 @@
 networks:
   caddy-net:
     name: caddy-net
+  caddy-opencode-net:
+    name: caddy-opencode-net
+    internal: true
+  caddy-grafana-net:
+    name: caddy-grafana-net
+    internal: true
+  caddy-publisher-net:
+    name: caddy-publisher-net
+    internal: true
+  caddy-metrics-net:
+    name: caddy-metrics-net
+    internal: true
 
 services:
   caddy:
     container_name: caddy
     hostname: caddy
-    image: caddy:2-alpine
+    image: caddy:${CADDY_VERSION:?Run via make}
     restart: unless-stopped
+    env_file:
+      - ${CADDY_ENV_FILE:-caddy.env}
     ports:
       - "80:80"
       - "443:443"
+      - "8443:8443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    environment:
-      - DOMAIN=${DOMAIN}
     networks:
-      - caddy-net
+      caddy-net: {}
+      caddy-opencode-net: {}
+      caddy-grafana-net: {}
+      caddy-publisher-net: {}
+      caddy-metrics-net:
+        aliases: [caddy-metrics]
     extends:
       file: docker-compose.base.yml
       service: base
@@ -28,6 +46,24 @@ services:
           memory: 128m
           cpus: "0.2"
 
+  headscale:
+    container_name: headscale
+    hostname: headscale
+    image: headscale/headscale:${HEADSCALE_VERSION:?Run via make}
+    restart: unless-stopped
+    command: serve
+    volumes:
+      - ${HEADSCALE_CONFIG_FILE:-./headscale/config.yaml}:/etc/headscale/config.yaml:ro
+      - headscale_data:/var/lib/headscale
+    networks:
+      - caddy-net
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+
 volumes:
   caddy_data:
   caddy_config:
+  headscale_data:

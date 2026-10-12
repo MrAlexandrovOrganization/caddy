@@ -1,1 +1,7 @@
 .env
+.env.*
+!.env.example
+caddy.env
+headscale/config.yaml
+README.local.md
+__pycache__/

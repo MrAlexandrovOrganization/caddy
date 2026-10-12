@@ -1,7 +1,69 @@
-mralexandrov.duckdns.org {
-    log {
-        output stdout
-        level INFO
-    }
-    reverse_proxy notes-bot-telegram:8080
+{
+	metrics
+	# Credentials can occur anywhere in requests/responses. Omit those objects.
+	log default {
+		format filter {
+			wrap json
+			fields {
+				request delete
+				resp_headers delete
+			}
+		}
+	}
+}
+
+(safe_access) {
+	log {
+		output stdout
+		level INFO
+		format filter {
+			wrap json
+			fields {
+				request delete
+				resp_headers delete
+				user_id delete
+			}
+		}
+	}
+	log_append service caddy
+	log_append site {args[0]}
+}
+
+https://{$HEADSCALE_DOMAIN}, https://{$HEADSCALE_LEGACY_DOMAIN}:8443 {
+	import safe_access headscale
+	reverse_proxy headscale:8080
+}
+
+# Match the actual TCP peer, never untrusted X-Forwarded-For headers.
+(vpn_only) {
+	@outside_vpn not remote_ip {$VPN_IPV4_CIDR} {$VPN_IPV6_CIDR}
+	respond @outside_vpn "VPN access required" 403
+}
+
+https://{$OPENCODE_DOMAIN} {
+	import safe_access opencode
+	import vpn_only
+	reverse_proxy opencode-ingress:4096
+}
+
+https://{$GRAFANA_DOMAIN} {
+	import safe_access grafana
+	import vpn_only
+	reverse_proxy grafana-ingress:3000
+}
+
+https://{$SUBSCRIPTIONS_DOMAIN} {
+	import safe_access subscriptions
+	reverse_proxy publisher-ingress:8080
+}
+
+# Bind only the dedicated metrics interface; do not expose the admin API.
+http://:9180 {
+	bind caddy-metrics
+	handle /metrics {
+		metrics
+	}
+	handle {
+		respond 404
+	}
 }
