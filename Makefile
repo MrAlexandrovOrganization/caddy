@@ -4,6 +4,7 @@ include versions.mk
 
 up: runtime-config-check
 	$(DOCKER_COMPOSE) up -d
+	$(MAKE) reload
 
 down:
 	$(DOCKER_COMPOSE) down
