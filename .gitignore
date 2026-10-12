@@ -5,3 +5,5 @@ caddy.env
 headscale/config.yaml
 README.local.md
 __pycache__/
+
+.runtime/

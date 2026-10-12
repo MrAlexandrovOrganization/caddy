@@ -30,7 +30,7 @@ services:
       - "443:443"
       - "8443:8443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./.runtime/caddy:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
     networks:

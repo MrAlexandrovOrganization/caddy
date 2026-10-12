@@ -164,3 +164,9 @@ The existing worker hostname also routes only POST worker RPCs for
 Each backend authenticates independently using a separate per-worker token
 registry. Consumer APIs remain private. No hostname, DNS, access policy or
 certificate change is required. The request body limit is 20 MB for these RPCs.
+
+Caddyfile remains the versioned source. make up/reload atomically prepares its
+runtime copy under ignored .runtime/caddy and mounts that directory read-only.
+This avoids stale single-file bind mounts after Git replaces a file. make up
+reloads the proxy after Compose activation; future updates need no restart.
+The first transition changes the mount and recreates only Caddy.
