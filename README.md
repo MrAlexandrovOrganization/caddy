@@ -170,3 +170,10 @@ runtime copy under ignored .runtime/caddy and mounts that directory read-only.
 This avoids stale single-file bind mounts after Git replaces a file. make up
 reloads the proxy after Compose activation; future updates need no restart.
 The first transition changes the mount and recreates only Caddy.
+
+### Grafana на другом хосте
+
+`GRAFANA_UPSTREAM` в приватном `caddy.env` переопределяет upstream Grafana.
+После переноса центра на WSL используется его tailnet endpoint; политика доступа,
+домен и сертификат сохраняются. Переменная применяется через `make up`.
+Локальный Docker alias остаётся значением по умолчанию для совместимости.

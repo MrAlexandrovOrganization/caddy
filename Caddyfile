@@ -54,7 +54,7 @@ https://{$OPENCODE_DOMAIN} {
 https://{$GRAFANA_DOMAIN} {
 	import safe_access grafana
 	import {$GRAFANA_ACCESS_POLICY:vpn_only}
-	reverse_proxy grafana-ingress:3000
+	reverse_proxy {$GRAFANA_UPSTREAM:grafana-ingress:3000}
 }
 
 https://{$SUBSCRIPTIONS_DOMAIN} {
