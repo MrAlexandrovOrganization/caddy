@@ -8,7 +8,7 @@ OpenCode и Grafana доступны только из VPN: Caddy проверя
 ## Конфигурация конкретной машины
 
 Требуются Docker Engine, Docker Compose v2+ и Make. Версии образов закреплены
-в `versions.mk`; `make versions` показывает их. Используйте команды через Make.
+в `makefiles/versions.mk`; `make versions` показывает их. Используйте команды через Make.
 
 Перед первым запуском:
 
@@ -115,8 +115,14 @@ docker exec headscale headscale nodes list
 
 ## Доставка и переход с прежней конфигурации
 
-CI запускает `make check` на PR и push в main; после успешной проверки push
-в main запускает SSH deployment (clean checkout, exact tested SHA via fast-forward, `make up`).
+CI запускает `make check` на PR, push main и workflow_dispatch. При
+`DEPLOY_ENABLED=true` успешная проверка запускает `make remote-deploy` на Russia.
+Отдельный ключ ограничен root-installed `scripts/deploy-receiver.py`; SSH host
+key закреплён в `VM_KNOWN_HOSTS`. Receiver принимает только probe/deploy и полный
+SHA, проверяет clean main, актуальную main и fast-forward, выполняет `make up`
+и проверяет Headscale health. Receipt — `~/.local/state/caddy-deploy/current.json`.
+Secrets: VM_HOST, VM_USER, VM_SSH_KEY, VM_KNOWN_HOSTS. Установка receiver явная,
+не выполняется кодом из следующего push. VM_PROJECT_PATH больше не используется.
 
 Перед первым деплоем этой версии необходимо на VM:
 

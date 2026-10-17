@@ -1,5 +1,25 @@
+(direct_listener) {
+	servers :443 {
+		protocols h1 h2 h3
+	}
+}
+
+(edge_listener) {
+	servers :443 {
+		listener_wrappers {
+			proxy_protocol {
+				allow {$INGRESS_PROXY_CIDR:127.0.0.1/32}
+				fallback_policy reject
+				timeout 5s
+			}
+			tls
+		}
+	}
+}
+
 {
 	metrics
+	import {$CADDY_LISTENER_OPTIONS:direct_listener}
 	# Credentials can occur anywhere in requests/responses. Omit those objects.
 	log default {
 		format filter {
@@ -9,6 +29,17 @@
 				resp_headers delete
 			}
 		}
+	}
+}
+
+(local_proxy) {
+	header_up Host {http.request.host}
+}
+
+(tls_origin) {
+	header_up Host {args[0]}
+	transport http {
+		tls_server_name {args[0]}
 	}
 }
 
@@ -31,7 +62,9 @@
 
 https://{$HEADSCALE_DOMAIN}, https://{$HEADSCALE_LEGACY_DOMAIN}:8443 {
 	import safe_access headscale
-	reverse_proxy headscale:8080
+	reverse_proxy {$HEADSCALE_UPSTREAM:headscale:8080} {
+		import {$HEADSCALE_PROXY_OPTIONS:local_proxy} {$HEADSCALE_DOMAIN}
+	}
 }
 
 # Match the actual TCP peer, never untrusted X-Forwarded-For headers.
@@ -48,7 +81,9 @@ https://{$HEADSCALE_DOMAIN}, https://{$HEADSCALE_LEGACY_DOMAIN}:8443 {
 https://{$OPENCODE_DOMAIN} {
 	import safe_access opencode
 	import {$OPENCODE_ACCESS_POLICY:vpn_only}
-	reverse_proxy opencode-ingress:4096
+	reverse_proxy {$OPENCODE_UPSTREAM:opencode-ingress:4096} {
+		import {$OPENCODE_PROXY_OPTIONS:local_proxy} {$OPENCODE_DOMAIN}
+	}
 }
 
 https://{$GRAFANA_DOMAIN} {
@@ -59,7 +94,9 @@ https://{$GRAFANA_DOMAIN} {
 
 https://{$SUBSCRIPTIONS_DOMAIN} {
 	import safe_access subscriptions
-	reverse_proxy publisher-ingress:8080
+	reverse_proxy {$SUBSCRIPTIONS_UPSTREAM:publisher-ingress:8080} {
+		import {$SUBSCRIPTIONS_PROXY_OPTIONS:local_proxy} {$SUBSCRIPTIONS_DOMAIN}
+	}
 }
 
 # Worker API only; audio submission/client API remains private.
@@ -77,7 +114,9 @@ https://{$TRANSCRIBER_WORKERS_DOMAIN} {
 		request_body {
 			max_size 20MB
 		}
-		reverse_proxy h2c://clip-embedder:50057
+		reverse_proxy {$CLIP_WORKER_UPSTREAM:h2c://clip-embedder:50057} {
+			import {$WORKERS_PROXY_OPTIONS:local_proxy} {$TRANSCRIBER_WORKERS_DOMAIN}
+		}
 	}
 	@stash_worker_rpc {
 		method POST
@@ -87,13 +126,17 @@ https://{$TRANSCRIBER_WORKERS_DOMAIN} {
 		request_body {
 			max_size 20MB
 		}
-		reverse_proxy h2c://stash:50058
+		reverse_proxy {$STASH_WORKER_UPSTREAM:h2c://stash:50058} {
+			import {$WORKERS_PROXY_OPTIONS:local_proxy} {$TRANSCRIBER_WORKERS_DOMAIN}
+		}
 	}
 	handle @worker_rpc {
 		request_body {
 			max_size 8MB
 		}
-		reverse_proxy h2c://transcriber-worker-api:50056
+		reverse_proxy {$TRANSCRIBER_WORKER_UPSTREAM:h2c://transcriber-worker-api:50056} {
+			import {$WORKERS_PROXY_OPTIONS:local_proxy} {$TRANSCRIBER_WORKERS_DOMAIN}
+		}
 	}
 	handle {
 		respond 404

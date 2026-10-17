@@ -1,0 +1,13 @@
+# TLS arrives from the existing Caddy L4 edge over its private Docker network.
+# The legacy Headscale URL keeps its direct public TLS port.
+services:
+  caddy:
+    ports: !override
+      - "0.0.0.0:8443:8443/tcp"
+    networks:
+      vpn-ingress:
+        aliases: [public-ingress]
+networks:
+  vpn-ingress:
+    external: true
+    name: vless-relay_vpn-ingress

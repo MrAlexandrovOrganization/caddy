@@ -1,11 +1,12 @@
 name: CI/CD
-
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
+permissions:
+  contents: read
 jobs:
   check:
     name: Validate configuration
@@ -13,25 +14,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: make check
-
   deploy:
-    name: Deploy to VM
+    name: Deploy to Russia
     runs-on: ubuntu-24.04
     needs: check
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true'
+    concurrency:
+      group: caddy-production
+      cancel-in-progress: false
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          script: |
-            set -eu
-            cd ${{ secrets.VM_PROJECT_PATH }}
-            test -z "$(git status --porcelain)"
-            git fetch origin ${{ github.sha }}
-            git merge --ff-only ${{ github.sha }}
-            test "$(git rev-parse HEAD)" = '${{ github.sha }}'
-            make up
+      - uses: actions/checkout@v4
+      - run: make remote-deploy
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_KNOWN_HOSTS: ${{ secrets.VM_KNOWN_HOSTS }}

@@ -1,0 +1,4 @@
+# Cached DNS clients still reach the original proxy. Never start its old DB.
+services:
+  headscale:
+    profiles: [retired-control-plane]
