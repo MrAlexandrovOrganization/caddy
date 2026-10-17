@@ -3,7 +3,7 @@ DOCKER_COMPOSE = $(DOCKER) compose
 include makefiles/versions.mk
 
 up: runtime-config-check
-	$(DOCKER_COMPOSE) up -d
+	$(DOCKER_COMPOSE) up -d --wait --wait-timeout 120
 	$(MAKE) reload
 
 down:
@@ -13,7 +13,7 @@ logs:
 	$(DOCKER_COMPOSE) logs -f
 
 reload: sync-runtime-config
-	$(DOCKER_COMPOSE) exec caddy caddy reload --config /etc/caddy/Caddyfile
+	$(DOCKER_COMPOSE) exec caddy caddy reload --address 127.0.0.1:2019 --config /etc/caddy/Caddyfile
 
 .PHONY: up down logs reload runtime-config-check check format
 

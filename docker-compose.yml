@@ -23,6 +23,12 @@ services:
     hostname: caddy
     image: caddy:${CADDY_VERSION:?Run via make}
     restart: unless-stopped
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:2019/config/"]
+      interval: 5s
+      timeout: 2s
+      retries: 12
+      start_period: 5s
     env_file:
       - ${CADDY_ENV_FILE:-caddy.env}
     ports:
