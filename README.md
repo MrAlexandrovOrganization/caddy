@@ -9,6 +9,9 @@ OpenCode и Grafana доступны только из VPN: Caddy проверя
 
 Требуются Docker Engine, Docker Compose v2+ и Make. Версии образов закреплены
 в `makefiles/versions.mk`; `make versions` показывает их. Используйте команды через Make.
+Для SSH delivery нужен Python 3.9+ со стандартной библиотекой.
+`make install` загружает закреплённые runtime и Ruff images; `make format`
+форматирует Caddyfile и Python с безопасными исправлениями импортов/линтера.
 
 Перед первым запуском:
 

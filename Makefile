@@ -19,6 +19,14 @@ reload: sync-runtime-config
 
 format:
 	$(DOCKER) run --rm --network none -v "$(CURDIR)/Caddyfile:/etc/caddy/Caddyfile" caddy:$(CADDY_VERSION) caddy fmt --overwrite /etc/caddy/Caddyfile
+	$(DOCKER) run --rm --network none -v "$(CURDIR)/scripts:/work" -w /work ghcr.io/astral-sh/ruff:$(RUFF_VERSION) check --select E4,E7,E9,F,I --fix --no-cache .
+	$(DOCKER) run --rm --network none -v "$(CURDIR)/scripts:/work" -w /work ghcr.io/astral-sh/ruff:$(RUFF_VERSION) format --no-cache .
+
+.PHONY: install
+install:
+	$(DOCKER) pull caddy:$(CADDY_VERSION)
+	$(DOCKER) pull headscale/headscale:$(HEADSCALE_VERSION)
+	$(DOCKER) pull ghcr.io/astral-sh/ruff:$(RUFF_VERSION)
 
 runtime-config-check: sync-runtime-config
 	@test -s caddy.env || { echo 'Create caddy.env from caddy.env.example'; exit 1; }
@@ -27,6 +35,8 @@ runtime-config-check: sync-runtime-config
 
 check: config-check
 	python3 -m py_compile scripts/deploy-receiver.py scripts/remote-deploy.py
+	$(DOCKER) run --rm --network none -v "$(CURDIR)/scripts:/work:ro" -w /work ghcr.io/astral-sh/ruff:$(RUFF_VERSION) check --select E4,E7,E9,F,I --no-cache .
+	$(DOCKER) run --rm --network none -v "$(CURDIR)/scripts:/work:ro" -w /work ghcr.io/astral-sh/ruff:$(RUFF_VERSION) format --check --no-cache .
 
 .PHONY: remote-deploy
 remote-deploy:

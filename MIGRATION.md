@@ -48,3 +48,27 @@ After destination writes, first stop it and move its **latest** consistent DB
 and keys back. Do not restore an old preparation snapshot over newer records.
 Revert the forwarder role/upstream and restart policy only after stopping the
 other active controller. Preserve backup files and certificate stores.
+
+## Verified migration, 17 October 2026
+
+DuckDNS `mralexandrov` A now points to 193.187.93.245; both the primary 443
+and legacy 8443 URL pass TLS validation and Headscale health. The original eight
+node identities, addresses, approved routes and Noise key matched the cold
+snapshot before start. Six host nodes and the Grafana sidecar reconnected;
+the pre-existing offline phone was not used for testing.
+
+SSH to all six native tailnet addresses was checked through Russia, with host
+keys read over previously trusted connections. An isolated ephemeral Tailscale
+client registered against the new controller and used Finland exit node
+100.64.0.6: both api.ipify.org and ifconfig.me returned 193.84.2.141. The probe
+node/container were deleted. Host routing and production exit preferences were
+not changed. Real VLESS requests also confirmed Finnish egress, Russian domain
+exceptions and the direct Finnish profile. Access from the actual phone was not
+tested. No full VM/Windows reboot was performed.
+
+Private backups are under `/home/maxim/backups/headscale-migration-20261017`
+on server and Russia, plus an off-VM copy in the operator's local
+`~/.local/state/headscale-migration-20261017`. They contain credentials; never
+commit or print them. `server-final` is the cold controller snapshot, with SQLite
+integrity, archive checksum and identity fingerprint. The original volumes
+remain on server with its Headscale stopped and restart=no.
