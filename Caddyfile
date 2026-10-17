@@ -43,6 +43,15 @@
 	}
 }
 
+# Noise control and WebSocket upgrades require HTTP/1.1 on this TLS hop.
+(tls_upgrade_origin) {
+	header_up Host {args[0]}
+	transport http {
+		versions 1.1
+		tls_server_name {args[0]}
+	}
+}
+
 (safe_access) {
 	log {
 		output stdout

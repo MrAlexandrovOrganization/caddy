@@ -31,7 +31,10 @@ to WSL. Move remaining applications before the original TLS certificates expire.
 On server, `.env` selects `compose.forwarder.yml` alongside the base file,
 excluding its old Headscale from ordinary startup. Disable restart on that old
 container as well. HEADSCALE_UPSTREAM points to Russia's **public** HTTPS IP,
-HEADSCALE_PROXY_OPTIONS=tls_origin. This supports cached DNS and the legacy URL
+HEADSCALE_PROXY_OPTIONS=tls_upgrade_origin. The HTTP/1.1 TLS hop preserves
+the Tailscale Noise HTTP Upgrade; HTTP/2 on this hop rejects it with 502.
+Use tls_upgrade_origin for OpenCode WebSocket connections too; gRPC worker
+upstreams retain tls_origin with HTTP/2 support. This supports cached DNS and the legacy URL
 without a dependency on the tailnet being available. Original volumes remain.
 
 After destination health and TLS checks, switch the DuckDNS base A record;
