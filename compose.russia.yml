@@ -8,6 +8,9 @@ services:
       vpn-ingress:
         aliases: [public-ingress]
 networks:
+  caddy-metrics-net:
+    external: true
+    name: caddy-metrics-net
   vpn-ingress:
     external: true
     name: vless-relay_vpn-ingress
