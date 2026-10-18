@@ -84,9 +84,9 @@ compose:
 # Read-only validation of every tracked Compose combination, without runtime secrets.
 .PHONY: compose-layout-check
 compose-layout-check:
-	$(DOCKER_COMPOSE_BASE) --env-file /dev/null -f compose/docker-compose.yml --profile '*' config --no-interpolate --no-env-resolution --quiet
-	$(DOCKER_COMPOSE_BASE) --env-file /dev/null -f compose/docker-compose.yml -f compose/compose.russia.yml --profile '*' config --no-interpolate --no-env-resolution --quiet
-	$(DOCKER_COMPOSE_BASE) --env-file /dev/null -f compose/docker-compose.yml -f compose/compose.forwarder.yml --profile '*' config --no-interpolate --no-env-resolution --quiet
-	$(DOCKER_COMPOSE_BASE) --env-file /dev/null -f compose/docker-compose.yml -f compose/compose.forwarder.yml -f compose/compose.russia.yml --profile '*' config --no-interpolate --no-env-resolution --quiet
+	CADDY_ENV_FILE=caddy.env.example HEADSCALE_CONFIG_FILE=./headscale/config.example.yaml $(DOCKER_COMPOSE_BASE) --env-file /dev/null -f compose/docker-compose.yml --profile '*' config --no-env-resolution --quiet
+	CADDY_ENV_FILE=caddy.env.example HEADSCALE_CONFIG_FILE=./headscale/config.example.yaml $(DOCKER_COMPOSE_BASE) --env-file /dev/null -f compose/docker-compose.yml -f compose/compose.russia.yml --profile '*' config --no-env-resolution --quiet
+	CADDY_ENV_FILE=caddy.env.example HEADSCALE_CONFIG_FILE=./headscale/config.example.yaml $(DOCKER_COMPOSE_BASE) --env-file /dev/null -f compose/docker-compose.yml -f compose/compose.forwarder.yml --profile '*' config --no-env-resolution --quiet
+	CADDY_ENV_FILE=caddy.env.example HEADSCALE_CONFIG_FILE=./headscale/config.example.yaml $(DOCKER_COMPOSE_BASE) --env-file /dev/null -f compose/docker-compose.yml -f compose/compose.forwarder.yml -f compose/compose.russia.yml --profile '*' config --no-env-resolution --quiet
 
 check: compose-layout-check
