@@ -90,7 +90,7 @@ Headscale API доступен внутри сети по `headscale:8080`, admi
 ### Самостоятельный OpenCode Web
 
 Upstream по умолчанию для `OPENCODE_DOMAIN` — `opencode-web-ingress:4096`
-из отдельного проекта `infra/opencode-web` (`compose.ingress.yaml`).
+из отдельного проекта `infra/opencode-web` (`compose/ingress.yaml`).
 Прежний `opencode-ingress` остаётся у opencode-server из стека бота;
 бот/backend продолжают пользоваться им независимо от веб-домена.
 Запустите и проверьте новый сервис до переключения origin Caddy.
