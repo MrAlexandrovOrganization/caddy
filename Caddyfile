@@ -90,7 +90,7 @@ https://{$HEADSCALE_DOMAIN}, https://{$HEADSCALE_LEGACY_DOMAIN}:8443 {
 https://{$OPENCODE_DOMAIN} {
 	import safe_access opencode
 	import {$OPENCODE_ACCESS_POLICY:vpn_only}
-	reverse_proxy {$OPENCODE_UPSTREAM:opencode-ingress:4096} {
+	reverse_proxy {$OPENCODE_UPSTREAM:opencode-web-ingress:4096} {
 		import {$OPENCODE_PROXY_OPTIONS:local_proxy} {$OPENCODE_DOMAIN}
 	}
 }

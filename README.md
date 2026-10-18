@@ -76,7 +76,7 @@ Headscale API доступен внутри сети по `headscale:8080`, admi
 | Сеть | Назначение / upstream |
 |---|---|
 | `caddy-net` | Headscale и исходящий доступ Caddy/ACME |
-| `caddy-opencode-net` | `opencode-ingress:4096` |
+| `caddy-opencode-net` | `opencode-web-ingress:4096` (standalone OpenCode Web) |
 | `caddy-grafana-net` | `grafana-ingress:3000` |
 | `caddy-publisher-net` | `publisher-ingress:8080` |
 | `caddy-transcriber-net` | `transcriber-worker-api:50056`, worker-only gRPC via h2c |
@@ -86,6 +86,19 @@ Headscale API доступен внутри сети по `headscale:8080`, admi
 Приложения подключают их как external. При первом развёртывании запускайте
 этот стек раньше потребителей. Метрики привязаны только к metrics-интерфейсу,
 порт 9180 не опубликован на хосте.
+
+### Самостоятельный OpenCode Web
+
+Upstream по умолчанию для `OPENCODE_DOMAIN` — `opencode-web-ingress:4096`
+из отдельного проекта `infra/opencode-web` (`compose.ingress.yaml`).
+Прежний `opencode-ingress` остаётся у opencode-server из стека бота;
+бот/backend продолжают пользоваться им независимо от веб-домена.
+Запустите и проверьте новый сервис до переключения origin Caddy.
+Если приватный `caddy.env` содержит прежний локальный `OPENCODE_UPSTREAM`,
+замените его новым alias и примените environment через `make up`.
+На Russia сохраните remote HTTPS origin и `tls_upgrade_origin`: менять
+его на Docker alias другого хоста нельзя. Домен и access policy сохраняются.
+Для отката origin верните `OPENCODE_UPSTREAM=opencode-ingress:4096`.
 
 ### Логи и метрики
 
