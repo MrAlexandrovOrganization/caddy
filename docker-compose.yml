@@ -62,6 +62,8 @@ services:
     image: headscale/headscale:${HEADSCALE_VERSION:?Run via make}
     restart: unless-stopped
     command: serve
+    ports:
+      - "3478:3478/udp"
     volumes:
       - ${HEADSCALE_CONFIG_FILE:-./headscale/config.yaml}:/etc/headscale/config.yaml:ro
       - headscale_data:/var/lib/headscale

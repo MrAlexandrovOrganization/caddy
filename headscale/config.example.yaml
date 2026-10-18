@@ -14,9 +14,17 @@ prefixes:
 
 derp:
   server:
-    enabled: false
-  urls:
-    - https://controlplane.tailscale.com/derpmap/default
+    enabled: true
+    region_id: 900
+    region_code: hostkey-russia
+    region_name: Hostkey Russia
+    verify_clients: true
+    stun_listen_addr: 0.0.0.0:3478
+    private_key_path: /var/lib/headscale/derp_server_private.key
+    automatically_add_embedded_derp_region: true
+    # Replace with this deployment's public address.
+    ipv4: 192.0.2.10
+  urls: []
   paths: []
   auto_update_enabled: true
   update_frequency: 3h

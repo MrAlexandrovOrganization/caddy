@@ -1,5 +1,7 @@
 DOCKER ?= docker
 DOCKER_COMPOSE = $(DOCKER) compose
+HEADSCALE_CONFIG_FILE ?= ./headscale/config.yaml
+export HEADSCALE_CONFIG_FILE
 include makefiles/versions.mk
 
 up: runtime-config-check
@@ -16,6 +18,18 @@ reload: sync-runtime-config
 	$(DOCKER_COMPOSE) exec caddy caddy reload --address 127.0.0.1:2019 --config /etc/caddy/Caddyfile
 
 .PHONY: up down logs reload runtime-config-check check format
+
+.PHONY: headscale-config-check headscale-recreate
+headscale-config-check:
+	$(DOCKER) run --rm --network none --tmpfs /var/lib/headscale -v "$(abspath $(HEADSCALE_CONFIG_FILE)):/etc/headscale/config.yaml:ro" headscale/headscale:$(HEADSCALE_VERSION) configtest
+
+# Private config updates may replace the inode; recreate to refresh its bind.
+headscale-recreate: headscale-config-check
+	$(DOCKER_COMPOSE) up -d --no-deps --force-recreate headscale
+	@for attempt in 1 2 3 4 5 6 7 8 9 10; do \
+		$(DOCKER_COMPOSE) exec -T caddy wget -q -T 2 -O - http://headscale:8080/health && exit 0; \
+		sleep 2; \
+	done; exit 1
 
 format:
 	$(DOCKER) run --rm --network none -v "$(CURDIR)/Caddyfile:/etc/caddy/Caddyfile" caddy:$(CADDY_VERSION) caddy fmt --overwrite /etc/caddy/Caddyfile
