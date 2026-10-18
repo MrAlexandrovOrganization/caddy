@@ -63,7 +63,7 @@ Git игнорирует `caddy.env`, `.env*` и `headscale/config.yaml`. Сер
 - `make reload`: перечитать только Caddyfile работающего контейнера.
 - `make logs`: логи; `make down`: остановить стек и удалить его Compose-сети.
   Данные volumes сохраняются. Подключённые приложения могут помешать удалению сетей.
-  Для остановки одного прокси используйте `docker compose stop caddy`.
+  Для остановки одного прокси используйте `docker compose --project-directory . -f compose/docker-compose.yml stop caddy`.
 
 Порты хоста: 80 (ACME), 443 (HTTPS), 8443 (совместимый вход Headscale).
 Перед запуском убедитесь, что они свободны. Публичный DNS должен указывать на
@@ -227,3 +227,15 @@ The first transition changes the mount and recreates only Caddy.
 После переноса центра на WSL используется его tailnet endpoint; политика доступа,
 домен и сертификат сохраняются. Переменная применяется через `make up`.
 Локальный Docker alias остаётся значением по умолчанию для совместимости.
+
+## Структура Compose
+
+Файлы Docker Compose находятся в `compose/`; основной файл — `compose/docker-compose.yml`.
+Команды запускайте из корня проекта через Makefile: он задаёт `--project-directory`
+на корень checkout. Build contexts, bind mounts, `env_file` и секреты остаются
+относительными к этому корню; имена Compose project, сервисов, сетей и томов сохранены.
+При явном вызове Docker используйте `docker compose --project-directory . -f compose/docker-compose.yml ...`.
+Если в приватной `.env` или окружении задан `COMPOSE_FILE`, добавьте `compose/`
+к прежним именам файлов, сохранив прежний набор overlays и порядок. Для плавного
+перехода Make также распознаёт прежние короткие имена, если файлы уже перенесены.
+Не меняйте project name и не удаляйте прежние тома для переноса файлов.

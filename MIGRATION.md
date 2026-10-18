@@ -15,7 +15,7 @@ HTTP-01 reaches the same certificate owner through port 80. Existing VPN,
 subscription and Telemt SNI routes remain independent.
 
 On Russia, ignored `.env` selects
-`COMPOSE_FILE=docker-compose.yml:compose.russia.yml`.
+`COMPOSE_FILE=compose/docker-compose.yml:compose/compose.russia.yml`.
 Private `caddy.env` selects `CADDY_LISTENER_OPTIONS=edge_listener` and the actual
 `INGRESS_PROXY_CIDR`. Headscale stays on the local caddy-net without published
 API/metrics/admin ports. Its public bootstrap path does not depend on WSL or
@@ -28,7 +28,7 @@ is preserved. Existing public_access/vpn_only settings must be copied exactly;
 the PROXY listener preserves client IP for the latter. Grafana already points
 to WSL. Move remaining applications before the original TLS certificates expire.
 
-On server, `.env` selects `compose.forwarder.yml` alongside the base file,
+On server, `.env` selects `compose/compose.forwarder.yml` alongside the base file,
 excluding its old Headscale from ordinary startup. Disable restart on that old
 container as well. HEADSCALE_UPSTREAM points to Russia's **public** HTTPS IP,
 HEADSCALE_PROXY_OPTIONS=tls_upgrade_origin. The HTTP/1.1 TLS hop preserves

@@ -48,7 +48,7 @@ services:
       caddy-metrics-net:
         aliases: [caddy-metrics]
     extends:
-      file: docker-compose.base.yml
+      file: compose/docker-compose.base.yml
       service: base
     deploy:
       resources:
