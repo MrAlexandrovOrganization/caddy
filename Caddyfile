@@ -144,7 +144,7 @@ https://{$TRANSCRIBER_WORKERS_DOMAIN} {
 			max_size 8MB
 		}
 		reverse_proxy {$TRANSCRIBER_WORKER_UPSTREAM:h2c://transcriber-worker-api:50056} {
-			import {$WORKERS_PROXY_OPTIONS:local_proxy} {$TRANSCRIBER_WORKERS_DOMAIN}
+			import {$TRANSCRIBER_WORKER_PROXY_OPTIONS:local_proxy} {$TRANSCRIBER_WORKERS_DOMAIN}
 		}
 	}
 	handle {
