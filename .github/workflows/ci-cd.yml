@@ -18,7 +18,7 @@ jobs:
     name: Deploy to Russia
     runs-on: ubuntu-24.04
     needs: check
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true' && !contains(github.event.head_commit.message, '[resources-only]')
     concurrency:
       group: caddy-production
       cancel-in-progress: false
