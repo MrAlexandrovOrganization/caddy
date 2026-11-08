@@ -187,6 +187,16 @@ https://{$TRANSCRIBER_WORKERS_DOMAIN} {
 			}
 			import location_mobile_proxy
 		}
+		@mobile_batches {
+			method POST
+			path /mobile/batches
+		}
+		handle @mobile_batches {
+			request_body {
+				max_size 262144
+			}
+			import location_mobile_proxy
+		}
 		@mobile_updates {
 			method GET
 			path_regexp location_update "^/mobile/app-update(/[0-9a-f]{64}[.]apk)?$"

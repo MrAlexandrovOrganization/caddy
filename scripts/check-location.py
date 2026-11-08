@@ -121,8 +121,11 @@ def request(container, method, path, token=TOKEN, body=b""):
         command, stdin=subprocess.PIPE, stdout=subprocess.PIPE
     ) as proc:
         try:
-            proc.stdin.write(wire)
-            proc.stdin.flush()
+            try:
+                proc.stdin.write(wire)
+                proc.stdin.flush()
+            except BrokenPipeError:
+                pass  # An oversized body can be rejected before it is sent in full.
             response = b""
             deadline = time.monotonic() + 10
             while True:
@@ -143,8 +146,12 @@ def request(container, method, path, token=TOKEN, body=b""):
                     ]
                     if lengths and len(payload) >= lengths[0]:
                         break
-            proc.stdin.close()
-            assert proc.wait(timeout=5) == 0
+            try:
+                proc.stdin.close()
+            except BrokenPipeError:
+                pass
+            # nc can report EPIPE after a valid oversized-body rejection.
+            proc.wait(timeout=5)
         finally:
             if proc.poll() is None:
                 proc.kill()
@@ -162,7 +169,11 @@ def main():
     point = "a0000000-0000-4000-8000-000000000001"
     ingestion = ["/mobile/locations/" + point, "/mobile/measurements/" + point]
     updates = ["/mobile/app-update", "/mobile/app-update/" + "a" * 64 + ".apk"]
-    accepted = [("PUT", p) for p in ingestion] + [("GET", p) for p in updates]
+    accepted = (
+        [("PUT", p) for p in ingestion]
+        + [("GET", p) for p in updates]
+        + [("POST", "/mobile/batches")]
+    )
     count = 0
     # Keep bind mounts under the checkout, also shared by local Docker VMs.
     runtime = ROOT / ".runtime"
@@ -214,16 +225,20 @@ def main():
                         )
                     count += 1
                 for wrong_method in [
-                    "POST",
-                    "DELETE",
-                    "GET" if method == "PUT" else "PUT",
+                    m
+                    for m in ["GET", "PUT", "POST", "DELETE", "PATCH", "HEAD"]
+                    if m != method
                 ]:
                     assert request(name, wrong_method, path)[0] == 404
                     count += 1
 
-            for prefix, limit in zip(ingestion, [4096, 65536]):
+            for verb, prefix, limit in [
+                ("PUT", ingestion[0], 4096),
+                ("PUT", ingestion[1], 65536),
+                ("POST", "/mobile/batches", 262144),
+            ]:
                 for size, expected in [(limit, 200), (limit + 1, 413)]:
-                    assert request(name, "PUT", prefix, body=b"x" * size)[0] == expected
+                    assert request(name, verb, prefix, body=b"x" * size)[0] == expected
                     count += 1
 
             for path in [
@@ -239,8 +254,10 @@ def main():
                 "/mobile/locations/" + point.upper(),
                 "/mobile/measurements/" + point + "/extra",
                 "/mobile/measurements/not-a-uuid",
+                "/mobile/batches/",
+                "/mobile/batches/extra",
             ]:
-                for method in ["GET", "PUT"]:
+                for method in ["GET", "PUT", "POST"]:
                     assert request(name, method, path)[0] == 404, (method, path)
                     count += 1
             logs = docker("logs", name)
