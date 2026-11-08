@@ -192,6 +192,9 @@ https://{$TRANSCRIBER_WORKERS_DOMAIN} {
 			path /mobile/batches
 		}
 		handle @mobile_batches {
+			# Reject declared oversize before an upstream can return an early reply.
+			@batch_too_large expression `{http.request.header.Content-Length} != "" && int({http.request.header.Content-Length}) > 262144`
+			respond @batch_too_large 413
 			request_body {
 				max_size 262144
 			}
