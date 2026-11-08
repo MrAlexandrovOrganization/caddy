@@ -152,8 +152,17 @@ https://{$TRANSCRIBER_WORKERS_DOMAIN} {
 	}
 }
 
-# Opt-in public ingestion only. The Location API validates the device bearer;
+# The Location API validates the device bearer for ingestion and app updates;
 # legacy read/delete endpoints are never forwarded by this site.
+(location_mobile_proxy) {
+	reverse_proxy {$LOCATION_UPSTREAM} {
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 15s
+		}
+	}
+}
+
 (location_mobile_site) {
 	https://{$LOCATION_DOMAIN} {
 		import safe_access location-mobile
@@ -166,12 +175,24 @@ https://{$TRANSCRIBER_WORKERS_DOMAIN} {
 			request_body {
 				max_size 4096
 			}
-			reverse_proxy {$LOCATION_UPSTREAM} {
-				transport http {
-					dial_timeout 5s
-					response_header_timeout 15s
-				}
+			import location_mobile_proxy
+		}
+		@mobile_measurements {
+			method PUT
+			path_regexp location_measurement "^/mobile/measurements/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+		}
+		handle @mobile_measurements {
+			request_body {
+				max_size 65536
 			}
+			import location_mobile_proxy
+		}
+		@mobile_updates {
+			method GET
+			path_regexp location_update "^/mobile/app-update(/[0-9a-f]{64}[.]apk)?$"
+		}
+		handle @mobile_updates {
+			import location_mobile_proxy
 		}
 		handle {
 			respond 404

@@ -49,10 +49,14 @@ runtime-config-check: sync-runtime-config
 	@test -s headscale/config.yaml || { echo 'Create headscale/config.yaml from its example'; exit 1; }
 	$(DOCKER_COMPOSE) config --quiet
 
-check: config-check
+check: config-check location-check
 	python3 -m py_compile scripts/deploy-receiver.py scripts/remote-deploy.py
 	$(DOCKER) run --rm --network none -v "$(CURDIR)/scripts:/work:ro" -w /work ghcr.io/astral-sh/ruff:$(RUFF_VERSION) check --select E4,E7,E9,F,I --no-cache .
 	$(DOCKER) run --rm --network none -v "$(CURDIR)/scripts:/work:ro" -w /work ghcr.io/astral-sh/ruff:$(RUFF_VERSION) format --check --no-cache .
+
+.PHONY: location-check
+location-check:
+	DOCKER='$(DOCKER)' CADDY_IMAGE='caddy:$(CADDY_VERSION)' python3 -B scripts/check-location.py
 
 .PHONY: remote-deploy
 remote-deploy:
