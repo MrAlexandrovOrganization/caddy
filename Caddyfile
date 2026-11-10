@@ -98,7 +98,17 @@ https://{$OPENCODE_DOMAIN} {
 https://{$GRAFANA_DOMAIN} {
 	import safe_access grafana
 	import {$GRAFANA_ACCESS_POLICY:vpn_only}
-	reverse_proxy {$GRAFANA_UPSTREAM:grafana-ingress:3000}
+	# GRAFANA_UPSTREAM may list primary and backup paths to the SAME instance.
+	reverse_proxy {$GRAFANA_UPSTREAM:grafana-ingress:3000} {
+		lb_policy first
+		fail_duration 10s
+		lb_try_duration 4s
+		lb_try_interval 250ms
+		lb_retry_match method GET HEAD
+		transport http {
+			dial_timeout 2s
+		}
+	}
 }
 
 https://{$SUBSCRIPTIONS_DOMAIN} {

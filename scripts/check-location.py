@@ -104,7 +104,7 @@ def configuration():
     }
 
 
-def request(container, method, path, token=TOKEN, body=b""):
+def request(container, method, path, token=TOKEN, body=b"", timeout=2):
     headers = [
         f"{method} {path} HTTP/1.1",
         f"Host: {HOST}",
@@ -116,7 +116,17 @@ def request(container, method, path, token=TOKEN, body=b""):
     wire = "\r\n".join(headers).encode() + b"\r\n\r\n" + body
     # Keep stdin open until the server closes the HTTP response. Closing it at
     # once makes BusyBox nc cancel in-flight proxy requests before their reply.
-    command = [*DOCKER, "exec", "-i", container, "nc", "-w", "2", "127.0.0.1", "18080"]
+    command = [
+        *DOCKER,
+        "exec",
+        "-i",
+        container,
+        "nc",
+        "-w",
+        str(timeout),
+        "127.0.0.1",
+        "18080",
+    ]
     with subprocess.Popen(
         command, stdin=subprocess.PIPE, stdout=subprocess.PIPE
     ) as proc:

@@ -246,3 +246,29 @@ The first transition changes the mount and recreates only Caddy.
 Настройка DNS, private environment, граница API и переключение Android-клиента
 описаны в [LOCATION.md](LOCATION.md). По умолчанию без `LOCATION_INGRESS` сайт
 выключен; примеры и `make check` проверяют включённый и выключенный варианты.
+
+## Grafana connection recovery
+
+`GRAFANA_UPSTREAM` accepts a space-separated ordered list of routes to the same
+Grafana instance. For Russia, the audited alternatives are
+`GRAFANA_UPSTREAM=100.64.0.10:3000 100.64.0.3:3000` in private `caddy.env`.
+The default remains the single `grafana-ingress:3000` address. A deployment does
+not edit that private file; configuring both routes is a separate activation step.
+Both WSL routes returned healthy Grafana on 11 November 2026. They do not provide
+HA for Grafana/WSL failure, and the host path must continue forwarding to the same
+instance and database. Existing VPN access policy and Grafana auth still apply.
+
+Caddy selects the first available route, marks transport failures unavailable
+for 10 seconds and tries another route within a four-second retry budget.
+Each connection attempt has a two-second dial timeout; the retry budget is not
+a total deadline for an established request or streaming response. GET/HEAD may
+retry after transport failure. Any method may retry a failed dial, before an
+upstream connection was established. Accepted POSTs are not replayed after a
+failed round trip, and HTTP 401/403/500 responses are passed through unchanged.
+A successful backup response uses its real HTTP status; exhausting both paths
+remains an error. See [Caddy retry semantics](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#load-balancing).
+
+`make check` includes `grafana-check`, which compiles the actual Grafana route
+and exercises primary selection, failed-dial fallback, authentication and
+application-error preservation using synthetic loopback backends in network-none
+containers. It sends no production traffic and does not alter the live listener.
