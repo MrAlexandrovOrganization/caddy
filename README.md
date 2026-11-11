@@ -250,13 +250,12 @@ The first transition changes the mount and recreates only Caddy.
 ## Grafana connection recovery
 
 `GRAFANA_UPSTREAM` accepts a space-separated ordered list of routes to the same
-Grafana instance. For Russia, the audited alternatives are
-`GRAFANA_UPSTREAM=100.64.0.10:3000 100.64.0.3:3000` in private `caddy.env`.
-The default remains the single `grafana-ingress:3000` address. A deployment does
-not edit that private file; configuring both routes is a separate activation step.
-Both WSL routes returned healthy Grafana on 11 November 2026. They do not provide
-HA for Grafana/WSL failure, and the host path must continue forwarding to the same
-instance and database. Existing VPN access policy and Grafana auth still apply.
+Grafana instance. Set an ordered list in private `caddy.env`, for example
+`GRAFANA_UPSTREAM=primary.example.invalid:3000 backup.example.invalid:3000`.
+The default remains the single `grafana-ingress:3000` address. Deployment preserves
+this private policy. Both paths must reach the same instance and database;
+route fallback does not provide availability if that instance is down. Existing
+access policy and Grafana authentication remain in force.
 
 Caddy selects the first available route, marks transport failures unavailable
 for 10 seconds and tries another route within a four-second retry budget.
