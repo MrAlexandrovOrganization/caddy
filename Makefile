@@ -99,3 +99,5 @@ check: compose-layout-check
 .PHONY: grafana-check
 grafana-check:
 	DOCKER='$(DOCKER)' CADDY_IMAGE='caddy:$(CADDY_VERSION)' python3 -B scripts/check-grafana.py
+
+include makefiles/observability.mk

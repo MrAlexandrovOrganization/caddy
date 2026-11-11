@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "service": "caddy",
+  "components": [
+    "caddy/*"
+  ],
+  "logs": [
+    {
+      "file": "monitoring/alloy/logs.alloy",
+      "phase": "parse",
+      "order": 80
+    }
+  ],
+  "assets": [
+    {
+      "kind": "metrics",
+      "file": "monitoring/prometheus/targets.json",
+      "destination": "caddy.json",
+      "location": "local"
+    }
+  ],
+  "retire": [
+    {
+      "kind": "metrics",
+      "destination": "caddy.json",
+      "sha256": [
+        "8c5939689b8fbe8c3f45ee8dae8eab0453e68e5ffe9508af4687ed17c18957fd"
+      ],
+      "location": "central"
+    }
+  ]
+}

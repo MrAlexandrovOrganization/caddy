@@ -1,0 +1,11 @@
+[
+  {
+    "targets": [
+      "caddy-metrics:9180"
+    ],
+    "labels": {
+      "job": "caddy",
+      "service": "caddy"
+    }
+  }
+]

@@ -7,3 +7,5 @@ README.local.md
 __pycache__/
 
 .runtime/
+
+.observability/
