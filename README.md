@@ -34,6 +34,8 @@ make up
 | `HEADSCALE_LEGACY_DOMAIN` | Совместимый вход Headscale на HTTPS-порту 8443 |
 | `OPENCODE_DOMAIN` | VPN-only HTTPS для OpenCode |
 | `GRAFANA_DOMAIN` | VPN-only HTTPS для Grafana |
+| `JELLYFIN_INGRESS` | `jellyfin_vpn_site` включает HTTPS-вход Jellyfin только для VPN |
+| `JELLYFIN_DOMAIN`, `JELLYFIN_UPSTREAM` | HTTPS-имя Jellyfin и его HTTP-адрес в VPN |
 | `SUBSCRIPTIONS_DOMAIN` | Публичный HTTPS origin подписок |
 | `TRANSCRIBER_WORKERS_DOMAIN` | Public TLS/gRPC endpoint for worker-only RPCs |
 | `OPENCODE_ACCESS_POLICY`, `GRAFANA_ACCESS_POLICY` | `vpn_only` (default), or explicit `public_access` to preserve an existing deployment policy |

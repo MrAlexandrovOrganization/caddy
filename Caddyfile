@@ -87,6 +87,19 @@ https://{$HEADSCALE_DOMAIN}, https://{$HEADSCALE_LEGACY_DOMAIN}:8443 {
 	# Application authentication is still enforced by the upstream.
 }
 
+(jellyfin_disabled) {
+}
+
+(jellyfin_vpn_site) {
+	https://{$JELLYFIN_DOMAIN} {
+		import safe_access jellyfin
+		import vpn_only
+		reverse_proxy {$JELLYFIN_UPSTREAM}
+	}
+}
+
+import {$JELLYFIN_INGRESS:jellyfin_disabled}
+
 https://{$OPENCODE_DOMAIN} {
 	import safe_access opencode
 	import {$OPENCODE_ACCESS_POLICY:vpn_only}
