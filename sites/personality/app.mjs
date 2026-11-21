@@ -1,10 +1,11 @@
-import { compare, connections, groups, readProfiles } from "./model.mjs";
+import { compare, connections, groups, profileClusters, readProfiles } from "./model.mjs";
 
 const element = id => document.getElementById(id);
 const svgNamespace = "http://www.w3.org/2000/svg";
 const width = 960;
 const height = 600;
 const pluralRules = new Intl.PluralRules("ru");
+const participantForms = { one: "участник", few: "участника", many: "участников" };
 
 function node(tag, text = "", className = "") {
   const result = document.createElement(tag);
@@ -41,11 +42,17 @@ function start(people) {
   const stage = element("graph-stage");
   const world = element("graph-world");
   const edges = element("edges");
+  const graphNodes = element("graph-nodes");
+  const clusterDetails = element("cluster-details");
+  const clusterMembers = element("cluster-members");
   const matrixPanel = element("matrix-panel");
   const matrix = element("matrix");
   const threshold = element("threshold");
   const viewButtons = [...document.querySelectorAll("[data-view]")];
   let matrixState = null;
+  let graphState = null;
+  let expandedCluster = null;
+  let renderedCluster = null;
   let fitted = false;
   let camera = { x: 0, y: 0, scale: 1 };
 
@@ -56,33 +63,16 @@ function start(people) {
       select.append(option);
     }
   }
-  const graphButtons = new Map();
-  for (const person of alphabetical) {
-    const button = node("button", "", "graph-node");
-    button.type = "button";
-    button.dataset.group = person.group;
-    button.dataset.person = person.id;
-    button.title = `${person.name} · ${person.code}`;
-    button.setAttribute("aria-label", button.title);
-    const initials = person.name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toLocaleUpperCase("ru");
-    button.append(node("span", initials), node("span", person.name, "node-label"));
-    element("graph-nodes").append(button);
-    graphButtons.set(person.id, button);
-  }
-  const teamPositions = new Map();
   const groupCenters = [[235, 148], [725, 148], [235, 447], [725, 447]];
-  for (const [index, group] of groups.entries()) {
-    const members = alphabetical.filter(person => person.group === group.id);
-    if (!members.length) continue;
-    const legend = node("span", `${group.label} · ${members.length}`);
+  for (const group of groups) {
+    const count = people.filter(person => person.group === group.id).length;
+    if (!count) continue;
+    const legend = node("span", `${group.label} · ${count}`);
     legend.dataset.group = group.id;
     element("graph-legend").append(legend);
-    for (const [position, person] of members.entries()) {
-      teamPositions.set(person.id, circlePoint(position, members.length, ...groupCenters[index], 175, 102));
-    }
   }
   element("coverage").textContent = [
-    countLabel(people.length, { one: "участник", few: "участника", many: "участников" }),
+    countLabel(people.length, participantForms),
     countLabel(people.length * (people.length - 1) / 2, { one: "пара", few: "пары", many: "пар" }),
   ].join(" · ");
   element("scope").value = state.scope;
@@ -144,12 +134,83 @@ function start(people) {
     applyCamera();
   }
 
-  function personLayout(graphEdges) {
-    const positions = new Map([[state.first, { x: width / 2, y: height / 2 }]]);
+  function buildGraph() {
+    const clusters = profileClusters(alphabetical, state.identity);
+    const byMember = new Map();
+    const buttons = new Map();
+    for (const cluster of clusters) {
+      const [person] = cluster.members;
+      for (const member of cluster.members) byMember.set(member.id, cluster.id);
+      const multiple = cluster.members.length > 1;
+      const button = node("button", "", multiple ? "graph-node cluster" : "graph-node");
+      button.type = "button";
+      button.dataset.group = cluster.group;
+      button.dataset.graphNode = cluster.id;
+      if (multiple) {
+        button.title = `${cluster.code} · ${countLabel(cluster.members.length, participantForms)}`;
+        button.setAttribute("aria-controls", "cluster-details");
+        button.append(node("span", cluster.members.length), node("span", cluster.code, "node-label"));
+      } else {
+        button.title = `${person.name} · ${person.code}`;
+        const initials = person.name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toLocaleUpperCase("ru");
+        button.append(node("span", initials), node("span", person.name, "node-label"));
+      }
+      button.setAttribute("aria-label", button.title);
+      buttons.set(cluster.id, button);
+    }
+    graphNodes.replaceChildren(...buttons.values());
+
+    const teamPositions = new Map();
+    for (const [index, group] of groups.entries()) {
+      const members = clusters.filter(cluster => cluster.group === group.id);
+      for (const [position, cluster] of members.entries()) {
+        const [x, y] = groupCenters[index];
+        teamPositions.set(cluster.id, members.length === 1
+          ? { x, y }
+          : circlePoint(position, members.length, x, y, 175, 102));
+      }
+    }
+    graphState = {
+      identity: state.identity,
+      clusters: new Map(clusters.map(cluster => [cluster.id, cluster])),
+      representatives: clusters.map(cluster => cluster.members[0]),
+      byMember,
+      buttons,
+      teamPositions,
+    };
+    expandedCluster = null;
+    renderedCluster = null;
+  }
+
+  function renderClusterDetails(positions) {
+    if (!positions.has(expandedCluster)) expandedCluster = null;
+    const cluster = graphState.clusters.get(expandedCluster);
+    clusterDetails.hidden = !cluster;
+    if (!cluster) return;
+    if (renderedCluster !== cluster.id) {
+      element("cluster-title").textContent = `${cluster.code} · ${countLabel(cluster.members.length, participantForms)}`;
+      const members = cluster.members.map(person => {
+        const button = node("button", `${person.name} · ${person.code}`, "cluster-member");
+        button.type = "button";
+        button.dataset.member = person.id;
+        return button;
+      });
+      clusterMembers.replaceChildren(...members);
+      renderedCluster = cluster.id;
+    }
+    for (const button of clusterMembers.children) {
+      const id = Number(button.dataset.member);
+      button.disabled = id === state.first;
+      button.setAttribute("aria-pressed", String(id === state.second));
+    }
+  }
+
+  function personLayout(graphEdges, focus) {
+    const positions = new Map([[focus, { x: width / 2, y: height / 2 }]]);
     const total = state.identity ? 5 : 4;
     for (let score = total; score >= state.threshold; score--) {
       const neighbors = graphEdges.filter(edge => edge.score === score)
-        .map(edge => edge.from === state.first ? edge.to : edge.from);
+        .map(edge => edge.from === focus ? edge.to : edge.from);
       const radiusX = 126 + (total - score) * 64;
       const radiusY = 98 + (total - score) * 40;
       for (const [index, id] of neighbors.entries()) {
@@ -160,9 +221,13 @@ function start(people) {
   }
 
   function renderGraph(refit = false) {
-    const focus = state.scope === "person" ? state.first : null;
-    const visibleEdges = connections(people, state.identity, state.threshold, focus);
-    const positions = focus === null ? teamPositions : personLayout(visibleEdges);
+    if (!graphState || graphState.identity !== state.identity) buildGraph();
+    const { representatives, byMember, buttons, teamPositions } = graphState;
+    const firstNode = byMember.get(state.first);
+    const secondNode = byMember.get(state.second);
+    const focus = state.scope === "person" ? firstNode : null;
+    const visibleEdges = connections(representatives, state.identity, state.threshold, focus);
+    const positions = focus === null ? teamPositions : personLayout(visibleEdges, focus);
     const points = [...positions.values()];
     bounds = {
       minX: Math.min(...points.map(point => point.x)) - 65,
@@ -170,29 +235,36 @@ function start(people) {
       minY: Math.min(...points.map(point => point.y)) - 62,
       maxY: Math.max(...points.map(point => point.y)) + 76,
     };
-    for (const [id, button] of graphButtons) {
+    renderClusterDetails(positions);
+    for (const [id, button] of buttons) {
       const point = positions.get(id);
       button.hidden = !point;
       if (!point) continue;
       button.style.left = `${point.x}px`;
       button.style.top = `${point.y}px`;
-      button.classList.toggle("first", id === state.first);
-      button.classList.toggle("second", id === state.second);
-      button.setAttribute("aria-pressed", String(id === state.second));
+      button.classList.toggle("first", id === firstNode);
+      button.classList.toggle("second", id === secondNode);
+      if (graphState.clusters.get(id).members.length > 1) {
+        button.setAttribute("aria-expanded", String(id === expandedCluster));
+      } else {
+        button.setAttribute("aria-pressed", String(id === secondNode));
+      }
     }
     const lines = visibleEdges.map(edge => {
       const from = positions.get(edge.from);
       const to = positions.get(edge.to);
-      const selected = [edge.from, edge.to].includes(state.first) && [edge.from, edge.to].includes(state.second);
-      const focused = edge.from === state.first || edge.to === state.first;
+      const pair = [edge.from, edge.to];
+      const selected = firstNode !== secondNode && pair.includes(firstNode) && pair.includes(secondNode);
+      const focused = pair.includes(firstNode);
       const line = document.createElementNS(svgNamespace, "line");
       for (const [key, value] of Object.entries({ x1: from.x, y1: from.y, x2: to.x, y2: to.y })) line.setAttribute(key, value);
-      line.setAttribute("class", ["edge", edge.score === edge.total ? "strong" : "", focused ? "focused" : "", selected ? "selected" : ""].join(" "));
+      line.setAttribute("class", ["edge", edge.score === edge.total - 1 ? "strong" : "", focused ? "focused" : "", selected ? "selected" : ""].join(" "));
       return line;
     });
     edges.replaceChildren(...lines);
     element("graph-status").textContent = [
-      focus === null ? "" : byId.get(focus).name,
+      focus === null ? "" : byId.get(state.first).name,
+      countLabel(positions.size, { one: "узел", few: "узла", many: "узлов" }),
       countLabel(visibleEdges.length, { one: "связь", few: "связи", many: "связей" }),
       `от ${state.threshold} из ${state.identity ? 5 : 4}`,
     ].filter(Boolean).join(" · ");
@@ -331,9 +403,23 @@ function start(people) {
     setPair(state.second, state.first);
     setView("graph");
   });
-  element("graph-nodes").addEventListener("click", event => {
-    const button = event.target.closest("button[data-person]");
-    if (button) setPair(state.first, Number(button.dataset.person));
+  graphNodes.addEventListener("click", event => {
+    const button = event.target.closest("button[data-graph-node]");
+    if (!button) return;
+    const cluster = graphState.clusters.get(Number(button.dataset.graphNode));
+    if (cluster.members.length === 1) {
+      setPair(state.first, cluster.members[0].id);
+      return;
+    }
+    expandedCluster = expandedCluster === cluster.id ? null : cluster.id;
+    renderGraph();
+    if (expandedCluster === null) return;
+    if (event.detail === 0) clusterMembers.querySelector("button:not(:disabled)")?.focus();
+    else clusterDetails.scrollIntoView({ block: "nearest" });
+  });
+  clusterMembers.addEventListener("click", event => {
+    const button = event.target.closest("button[data-member]");
+    if (button) setPair(state.first, Number(button.dataset.member));
   });
   matrix.addEventListener("click", event => {
     const button = event.target.closest("button[data-row]");

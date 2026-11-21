@@ -42,6 +42,16 @@ export function compare(first, second, includeIdentity) {
   return { axes, total: counted.length, score: counted.filter(axis => axis.first === axis.second).length };
 }
 
+export function profileClusters(people, includeIdentity) {
+  const clusters = new Map();
+  for (const person of people) {
+    const code = includeIdentity ? person.code : person.code.slice(0, 4);
+    if (!clusters.has(code)) clusters.set(code, { id: person.id, code, group: person.group, members: [] });
+    clusters.get(code).members.push(person);
+  }
+  return [...clusters.values()];
+}
+
 export function connections(people, includeIdentity, minimum, focusId = null) {
   const edges = [];
   for (const [index, first] of people.entries()) {
