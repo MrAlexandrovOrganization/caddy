@@ -54,8 +54,6 @@ main { padding-block: clamp(1.8rem, 4.5vw, 3.75rem) 2rem; }
 }
 .view-switch button[aria-pressed="true"] { background: var(--surface); color: var(--primary); box-shadow: 0 1px 3px #33225c18; }
 .view-switch button:hover, .zoom-controls button:hover, .focus-button:hover { color: var(--primary); background-color: var(--primary-light); }
-.switch-label { display: flex; flex-direction: row; align-items: center; gap: .45rem; min-height: 2.7rem; }
-.switch-label input { accent-color: var(--primary); width: 1.05rem; height: 1.05rem; margin: 0; }
 
 .workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr) 17.25rem; gap: 1rem; align-items: start; }
 .visual-panel, .comparison { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 1.15rem; }
@@ -176,7 +174,6 @@ select {
 .axes dt { font-weight: 540; }
 .axes dd { margin: 0; white-space: nowrap; color: var(--muted); }
 .axes .match dd { color: #11755c; font-weight: 680; }
-.axes small { display: block; font-size: .75rem; color: var(--muted); }
 .focus-button { width: 100%; background: var(--primary-light); color: var(--primary); }
 
 .matrix-scroll { overflow: auto; max-height: 35rem; border-block: 1px solid var(--line); padding: .25rem .65rem .55rem; }

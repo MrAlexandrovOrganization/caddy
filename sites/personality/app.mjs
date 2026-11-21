@@ -1,9 +1,11 @@
-import { compare, connections, groups, profileClusters, readProfiles } from "./model.mjs";
+import { compare, connections, dimensions, groups, profileClusters, readProfiles } from "./model.mjs";
 
 const element = id => document.getElementById(id);
 const svgNamespace = "http://www.w3.org/2000/svg";
 const width = 960;
 const height = 600;
+const includeIdentity = true;
+const axisCount = dimensions.length;
 const pluralRules = new Intl.PluralRules("ru");
 const participantForms = { one: "участник", few: "участника", many: "участников" };
 
@@ -78,7 +80,6 @@ function start(people) {
     view: "graph",
     scope: "team",
     threshold: 3,
-    identity: false,
     order: "name",
   };
   const first = element("first");
@@ -125,7 +126,7 @@ function start(people) {
     for (const option of first.options) option.disabled = Number(option.value) === b.id;
     for (const option of second.options) option.disabled = Number(option.value) === a.id;
 
-    const { score, total, axes } = compare(a, b, state.identity);
+    const { score, total, axes } = compare(a, b, includeIdentity);
     const name = node("p", `${a.name} × ${b.name}`, "pair-name");
     const codes = node("p", `${a.code} / ${b.code}`, "pair-codes");
     const tally = node("p", `${score} из ${total} `, "pair-score");
@@ -134,9 +135,7 @@ function start(people) {
     for (const axis of axes) {
       const equal = axis.first === axis.second;
       const row = node("div", "", equal ? "match" : "");
-      const title = node("dt", axis.label);
-      if (!axis.counted) title.append(node("small", "Вне счёта"));
-      row.append(title, node("dd", equal ? `${axis.first} · совпало` : `${axis.first} / ${axis.second}`));
+      row.append(node("dt", axis.label), node("dd", equal ? `${axis.first} · совпало` : `${axis.first} / ${axis.second}`));
       breakdown.append(row);
     }
     element("pair-details").replaceChildren(name, codes, tally, breakdown);
@@ -174,7 +173,7 @@ function start(people) {
   }
 
   function buildGraph() {
-    const clusters = profileClusters(alphabetical, state.identity);
+    const clusters = profileClusters(alphabetical, includeIdentity);
     const byMember = new Map();
     const buttons = new Map(alphabetical.map(person => {
       const button = node("button", person.name, "graph-node");
@@ -227,7 +226,6 @@ function start(people) {
     }
     graphNodes.replaceChildren(...[...views.values()].map(view => view.shape));
     graphState = {
-      identity: state.identity,
       representatives: clusters.map(cluster => cluster.members[0]),
       byMember,
       buttons,
@@ -238,10 +236,9 @@ function start(people) {
 
   function personLayout(graphEdges, focus, views) {
     const positions = new Map([[focus, { x: width / 2, y: height / 2 }]]);
-    const total = state.identity ? 5 : 4;
     const outerRadius = id => Math.max(views.get(id).rx, views.get(id).ry);
     let occupiedRadius = outerRadius(focus);
-    for (let score = total; score >= state.threshold; score--) {
+    for (let score = axisCount; score >= state.threshold; score--) {
       const neighbors = graphEdges.filter(edge => edge.score === score)
         .map(edge => edge.from === focus ? edge.to : edge.from);
       if (!neighbors.length) continue;
@@ -257,12 +254,12 @@ function start(people) {
   }
 
   function renderGraph(refit = false) {
-    if (!graphState || graphState.identity !== state.identity) buildGraph();
+    if (!graphState) buildGraph();
     const { representatives, byMember, buttons, views, teamPositions } = graphState;
     const firstNode = byMember.get(state.first);
     const secondNode = byMember.get(state.second);
     const focus = state.scope === "person" ? firstNode : null;
-    const visibleEdges = connections(representatives, state.identity, state.threshold, focus);
+    const visibleEdges = connections(representatives, includeIdentity, state.threshold, focus);
     const positions = focus === null ? teamPositions : personLayout(visibleEdges, focus, views);
     const points = [...positions].map(([id, point]) => {
       const { rx, ry } = views.get(id);
@@ -313,7 +310,7 @@ function start(people) {
       focus === null ? "" : byId.get(state.first).name,
       countLabel([...positions.keys()].reduce((count, id) => count + views.get(id).cluster.members.length, 0), participantForms),
       countLabel(visibleEdges.length, { one: "связь", few: "связи", many: "связей" }),
-      `от ${state.threshold} из ${state.identity ? 5 : 4}`,
+      `от ${state.threshold} из ${axisCount}`,
     ].filter(Boolean).join(" · ");
     if (refit || fitted) fit();
   }
@@ -347,7 +344,7 @@ function start(people) {
       for (const [j, counterpart] of rows.entries()) {
         const cell = node("td", i === j ? "—" : "");
         if (i !== j) {
-          const { score, total } = compare(person, counterpart, state.identity);
+          const { score, total } = compare(person, counterpart, includeIdentity);
           const button = node("button", score, "matrix-cell");
           button.type = "button";
           button.tabIndex = -1;
@@ -364,18 +361,17 @@ function start(people) {
       body.append(row);
     }
     matrix.replaceChildren(head, body);
-    const total = state.identity ? 5 : 4;
-    const key = Array.from({ length: total + 1 }, (_, value) => {
+    const key = Array.from({ length: axisCount + 1 }, (_, value) => {
       const swatch = node("span", value);
       swatch.dataset.score = value;
       return swatch;
     });
     element("matrix-key").replaceChildren(...key);
-    matrixState = { order: state.order, identity: state.identity, columns, rowHeaders, cells, selected: null };
+    matrixState = { order: state.order, columns, rowHeaders, cells, selected: null };
   }
 
   function renderMatrix() {
-    if (!matrixState || matrixState.identity !== state.identity || matrixState.order !== state.order) buildMatrix();
+    if (!matrixState || matrixState.order !== state.order) buildMatrix();
     const { selected, columns, rowHeaders, cells } = matrixState;
     if (selected) {
       rowHeaders.get(selected[0]).removeAttribute("data-selected");
@@ -411,27 +407,15 @@ function start(people) {
     else renderMatrix();
   }
 
-  function thresholdOptions() {
-    const total = state.identity ? 5 : 4;
-    state.threshold = Math.min(state.threshold, total);
-    threshold.replaceChildren(...Array.from({ length: total }, (_, i) => {
-      const option = node("option", `${i + 1} из ${total}`);
-      option.value = i + 1;
-      return option;
-    }));
-    threshold.value = state.threshold;
-  }
-  thresholdOptions();
+  threshold.replaceChildren(...Array.from({ length: axisCount }, (_, i) => {
+    const option = node("option", `${i + 1} из ${axisCount}`);
+    option.value = i + 1;
+    return option;
+  }));
+  threshold.value = state.threshold;
   first.addEventListener("change", () => setPair(Number(first.value), state.second));
   second.addEventListener("change", () => setPair(state.first, Number(second.value)));
   for (const button of viewButtons) button.addEventListener("click", () => setView(button.dataset.view));
-  element("include-identity").addEventListener("change", event => {
-    state.identity = event.target.checked;
-    thresholdOptions();
-    renderPair();
-    if (state.view === "graph") renderGraph(state.scope === "person");
-    else renderMatrix();
-  });
   element("scope").addEventListener("change", event => {
     state.scope = event.target.value;
     renderGraph(true);
