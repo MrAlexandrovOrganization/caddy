@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#f6f5fb">
+  <title>Карта команды · Пионерский</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <span class="brand"><span class="brand-mark" aria-hidden="true"></span>Пионерский</span>
+      <span class="access-label">Только просмотр</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="page-heading">
+      <h1>Карта команды</h1>
+      <p id="coverage" aria-live="polite">Загружаем профили…</p>
+    </div>
+    <p id="load-error" class="load-error" role="alert" hidden></p>
+
+    <div id="workspace" hidden>
+      <div class="workspace-toolbar">
+        <nav class="view-switch" aria-label="Представление">
+          <button type="button" data-view="graph" aria-pressed="true">Граф связей</button>
+          <button type="button" data-view="matrix" aria-pressed="false">Матрица пар</button>
+        </nav>
+        <label class="switch-label"><input id="include-identity" type="checkbox">Учитывать A/T</label>
+      </div>
+
+      <div class="workspace-grid">
+        <section id="graph-panel" class="visual-panel" aria-labelledby="graph-title">
+          <div class="panel-head">
+            <div>
+              <h2 id="graph-title">Связи участников</h2>
+              <p id="graph-status" class="meta" aria-live="polite"></p>
+            </div>
+            <div class="filter-row">
+              <label>Показывать<select id="scope"><option value="team">Вся команда</option><option value="person">Выбранный участник</option></select></label>
+              <label>Минимум совпадений<select id="threshold"></select></label>
+            </div>
+          </div>
+          <div class="graph-stage" id="graph-stage" aria-label="Граф совпадений профилей">
+            <div class="graph-world" id="graph-world">
+              <svg id="edges" viewBox="0 0 960 600" aria-hidden="true"></svg>
+              <div id="graph-nodes"></div>
+            </div>
+            <div class="zoom-controls" aria-label="Масштаб графа">
+              <button type="button" id="zoom-out" aria-label="Уменьшить">−</button>
+              <button type="button" id="zoom-reset" aria-label="Вписать граф">Вписать</button>
+              <button type="button" id="zoom-in" aria-label="Увеличить">+</button>
+            </div>
+          </div>
+          <div class="panel-footer graph-legend" id="graph-legend" aria-label="Группы типов"></div>
+        </section>
+
+        <section id="matrix-panel" class="visual-panel" aria-labelledby="matrix-title" hidden>
+          <div class="panel-head">
+            <div><h2 id="matrix-title">Все пары</h2><p class="meta">Выбери ячейку для сравнения.</p></div>
+            <label>Порядок<select id="matrix-order"><option value="name">По имени</option><option value="type">По типу</option></select></label>
+          </div>
+          <div class="matrix-scroll" tabindex="0" aria-label="Прокручиваемая матрица пар">
+            <table id="matrix" aria-labelledby="matrix-title"></table>
+          </div>
+          <div class="panel-footer"><span>Совпадения</span><div id="matrix-key" class="matrix-key" aria-label="Шкала числа совпадений"></div></div>
+        </section>
+
+        <aside class="comparison" aria-labelledby="compare-title">
+          <h2 id="compare-title">Сравнение пары</h2>
+          <label>Участник<select id="first"></select></label>
+          <label>С кем сравнить<select id="second"></select></label>
+          <div id="pair-details" class="pair-details" aria-live="polite" aria-atomic="true"></div>
+          <button type="button" id="focus-second" class="focus-button">Связи второго участника</button>
+        </aside>
+      </div>
+
+      <footer class="site-footer">
+        Каждое совпадение — одинаковая буква на одной шкале теста. Значение показывает сходство профилей.
+      </footer>
+    </div>
+  </main>
+</body>
+</html>

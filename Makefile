@@ -49,7 +49,7 @@ runtime-config-check: sync-runtime-config
 	@test -s headscale/config.yaml || { echo 'Create headscale/config.yaml from its example'; exit 1; }
 	$(DOCKER_COMPOSE) config --quiet
 
-check: config-check location-check grafana-check
+check: config-check location-check grafana-check personality-check
 	python3 -m py_compile scripts/deploy-receiver.py scripts/remote-deploy.py
 	$(DOCKER) run --rm --network none -v "$(CURDIR)/scripts:/work:ro" -w /work ghcr.io/astral-sh/ruff:$(RUFF_VERSION) check --select E4,E7,E9,F,I --no-cache .
 	$(DOCKER) run --rm --network none -v "$(CURDIR)/scripts:/work:ro" -w /work ghcr.io/astral-sh/ruff:$(RUFF_VERSION) format --check --no-cache .
@@ -76,11 +76,25 @@ config-check:
 	$(DOCKER) run --rm --network none --tmpfs /var/lib/headscale -v "$(CURDIR)/headscale/config.example.yaml:/etc/headscale/config.yaml:ro" headscale/headscale:$(HEADSCALE_VERSION) configtest
 
 # Keep the mounted directory stable across Git's atomic file replacement.
-.PHONY: sync-runtime-config
-sync-runtime-config:
+.PHONY: sync-runtime-config sync-personality-site personality-check
+sync-runtime-config: sync-personality-site
 	mkdir -p .runtime/caddy
 	cp Caddyfile .runtime/caddy/Caddyfile.next
 	mv -f .runtime/caddy/Caddyfile.next .runtime/caddy/Caddyfile
+
+sync-personality-site:
+	@if test -f .runtime/caddy/personality.d/viewer.caddy; then \
+		set -e; umask 077; \
+		test -s .runtime/caddy/personality/profiles.json || { echo 'Missing private personality profiles.json'; exit 1; }; \
+		for asset in index.html styles.css app.mjs model.mjs; do \
+			cp "sites/personality/$$asset" ".runtime/caddy/personality/.$$asset.next"; \
+			mv -f ".runtime/caddy/personality/.$$asset.next" ".runtime/caddy/personality/$$asset"; \
+		done; \
+	fi
+
+personality-check:
+	node --check sites/personality/app.mjs
+	node --test sites/personality/model.test.mjs
 
 .PHONY: compose
 compose:
