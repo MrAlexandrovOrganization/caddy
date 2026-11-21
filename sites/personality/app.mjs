@@ -4,6 +4,8 @@ const element = id => document.getElementById(id);
 const svgNamespace = "http://www.w3.org/2000/svg";
 const width = 960;
 const height = 600;
+const personRadius = 21;
+const outlinePadding = 8;
 const pluralRules = new Intl.PluralRules("ru");
 const participantForms = { one: "участник", few: "участника", many: "участников" };
 
@@ -23,6 +25,42 @@ function circlePoint(index, count, x, y, radiusX, radiusY) {
   return { x: x + Math.cos(angle) * radiusX, y: y + Math.sin(angle) * radiusY };
 }
 
+function clusterOrbit(count) {
+  return Math.max(29, (personRadius + 6) / Math.sin(Math.PI / count));
+}
+
+function layoutTeam(views) {
+  const gap = 42;
+  const blocks = groups.map(group => {
+    const members = [...views.values()].filter(view => view.cluster.group === group.id);
+    if (!members.length) return { width: 0, height: 0, positions: [] };
+    const columns = Math.ceil(Math.sqrt(members.length));
+    const rows = Math.ceil(members.length / columns);
+    const radius = Math.max(...members.map(view => view.radius));
+    const stepX = 2 * radius + 26;
+    const stepY = 2 * radius + 34;
+    const blockWidth = columns * stepX - 26;
+    const positions = members.map(({ cluster }, index) => {
+      const row = Math.floor(index / columns);
+      const rowSize = Math.min(columns, members.length - row * columns);
+      return [cluster.id, {
+        x: blockWidth / 2 + (index % columns - (rowSize - 1) / 2) * stepX,
+        y: radius + row * stepY,
+      }];
+    });
+    return { width: blockWidth, height: rows * stepY - 34, positions };
+  });
+  const columnWidths = [Math.max(blocks[0].width, blocks[2].width), Math.max(blocks[1].width, blocks[3].width)];
+  const rowHeights = [Math.max(blocks[0].height, blocks[1].height), Math.max(blocks[2].height, blocks[3].height)];
+  return new Map(blocks.flatMap((block, index) => {
+    const column = index % 2;
+    const row = Math.floor(index / 2);
+    const left = (columnWidths[column] - block.width) / 2 + (column ? columnWidths[0] + gap : 0);
+    const top = (rowHeights[row] - block.height) / 2 + (row ? rowHeights[0] + gap : 0);
+    return block.positions.map(([id, point]) => [id, { x: left + point.x, y: top + point.y }]);
+  }));
+}
+
 function start(people) {
   const byId = new Map(people.map(person => [person.id, person]));
   const alphabetical = [...people].sort((a, b) => a.name.localeCompare(b.name, "ru"));
@@ -31,7 +69,7 @@ function start(people) {
     first: people[0].id,
     second: people[Math.min(2, people.length - 1)].id,
     view: "graph",
-    scope: matchMedia("(max-width: 600px)").matches ? "person" : "team",
+    scope: "team",
     threshold: 3,
     identity: false,
     order: "name",
@@ -43,16 +81,13 @@ function start(people) {
   const world = element("graph-world");
   const edges = element("edges");
   const graphNodes = element("graph-nodes");
-  const clusterDetails = element("cluster-details");
-  const clusterMembers = element("cluster-members");
+  world.style.setProperty("--person-size", `${2 * personRadius}px`);
   const matrixPanel = element("matrix-panel");
   const matrix = element("matrix");
   const threshold = element("threshold");
   const viewButtons = [...document.querySelectorAll("[data-view]")];
   let matrixState = null;
   let graphState = null;
-  let expandedCluster = null;
-  let renderedCluster = null;
   let fitted = false;
   let camera = { x: 0, y: 0, scale: 1 };
 
@@ -63,7 +98,6 @@ function start(people) {
       select.append(option);
     }
   }
-  const groupCenters = [[235, 148], [725, 148], [235, 447], [725, 447]];
   for (const group of groups) {
     const count = people.filter(person => person.group === group.id).length;
     if (!count) continue;
@@ -138,117 +172,98 @@ function start(people) {
     const clusters = profileClusters(alphabetical, state.identity);
     const byMember = new Map();
     const buttons = new Map();
+    const views = new Map();
     for (const cluster of clusters) {
-      const [person] = cluster.members;
-      for (const member of cluster.members) byMember.set(member.id, cluster.id);
       const multiple = cluster.members.length > 1;
-      const button = node("button", "", multiple ? "graph-node cluster" : "graph-node");
-      button.type = "button";
-      button.dataset.group = cluster.group;
-      button.dataset.graphNode = cluster.id;
-      if (multiple) {
-        button.title = `${cluster.code} · ${countLabel(cluster.members.length, participantForms)}`;
-        button.setAttribute("aria-controls", "cluster-details");
-        button.append(node("span", cluster.members.length), node("span", cluster.code, "node-label"));
-      } else {
+      const orbit = multiple ? clusterOrbit(cluster.members.length) : 0;
+      const radius = multiple ? orbit + personRadius + outlinePadding : personRadius;
+      const members = cluster.members.map((person, index) => {
+        byMember.set(person.id, cluster.id);
+        const button = node("button", "", "graph-node");
+        button.type = "button";
+        button.dataset.group = person.group;
+        button.dataset.person = person.id;
         button.title = `${person.name} · ${person.code}`;
+        button.setAttribute("aria-label", button.title);
         const initials = person.name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toLocaleUpperCase("ru");
-        button.append(node("span", initials), node("span", person.name, "node-label"));
+        button.append(node("span", initials));
+        if (multiple) {
+          const point = circlePoint(index, cluster.members.length, radius, radius, orbit, orbit);
+          button.style.left = `${point.x}px`;
+          button.style.top = `${point.y}px`;
+        } else {
+          button.append(node("span", person.name, "node-label"));
+        }
+        buttons.set(person.id, button);
+        return button;
+      });
+      let shape = members[0];
+      if (multiple) {
+        shape = node("div", "", "graph-cluster");
+        shape.dataset.group = cluster.group;
+        shape.setAttribute("role", "group");
+        shape.setAttribute("aria-label", `${cluster.code} · ${countLabel(cluster.members.length, participantForms)}`);
+        shape.style.width = shape.style.height = `${2 * radius}px`;
+        shape.append(...members, node("span", cluster.code, "cluster-label"));
       }
-      button.setAttribute("aria-label", button.title);
-      buttons.set(cluster.id, button);
+      views.set(cluster.id, { cluster, shape, radius });
     }
-    graphNodes.replaceChildren(...buttons.values());
-
-    const teamPositions = new Map();
-    for (const [index, group] of groups.entries()) {
-      const members = clusters.filter(cluster => cluster.group === group.id);
-      for (const [position, cluster] of members.entries()) {
-        const [x, y] = groupCenters[index];
-        teamPositions.set(cluster.id, members.length === 1
-          ? { x, y }
-          : circlePoint(position, members.length, x, y, 175, 102));
-      }
-    }
+    graphNodes.replaceChildren(...[...views.values()].map(view => view.shape));
     graphState = {
       identity: state.identity,
-      clusters: new Map(clusters.map(cluster => [cluster.id, cluster])),
       representatives: clusters.map(cluster => cluster.members[0]),
       byMember,
       buttons,
-      teamPositions,
+      views,
+      teamPositions: layoutTeam(views),
     };
-    expandedCluster = null;
-    renderedCluster = null;
   }
 
-  function renderClusterDetails(positions) {
-    if (!positions.has(expandedCluster)) expandedCluster = null;
-    const cluster = graphState.clusters.get(expandedCluster);
-    clusterDetails.hidden = !cluster;
-    if (!cluster) return;
-    if (renderedCluster !== cluster.id) {
-      element("cluster-title").textContent = `${cluster.code} · ${countLabel(cluster.members.length, participantForms)}`;
-      const members = cluster.members.map(person => {
-        const button = node("button", `${person.name} · ${person.code}`, "cluster-member");
-        button.type = "button";
-        button.dataset.member = person.id;
-        return button;
-      });
-      clusterMembers.replaceChildren(...members);
-      renderedCluster = cluster.id;
-    }
-    for (const button of clusterMembers.children) {
-      const id = Number(button.dataset.member);
-      button.disabled = id === state.first;
-      button.setAttribute("aria-pressed", String(id === state.second));
-    }
-  }
-
-  function personLayout(graphEdges, focus) {
+  function personLayout(graphEdges, focus, views) {
     const positions = new Map([[focus, { x: width / 2, y: height / 2 }]]);
     const total = state.identity ? 5 : 4;
+    let occupiedRadius = views.get(focus).radius;
     for (let score = total; score >= state.threshold; score--) {
       const neighbors = graphEdges.filter(edge => edge.score === score)
         .map(edge => edge.from === focus ? edge.to : edge.from);
-      const radiusX = 126 + (total - score) * 64;
-      const radiusY = 98 + (total - score) * 40;
+      if (!neighbors.length) continue;
+      const largest = Math.max(...neighbors.map(id => views.get(id).radius));
+      const spacing = neighbors.length > 1 ? (largest + 16) / Math.sin(Math.PI / neighbors.length) : 0;
+      const orbit = Math.max(occupiedRadius + largest + 38, spacing);
       for (const [index, id] of neighbors.entries()) {
-        positions.set(id, circlePoint(index, neighbors.length, width / 2, height / 2, radiusX, radiusY));
+        positions.set(id, circlePoint(index, neighbors.length, width / 2, height / 2, orbit, orbit));
       }
+      occupiedRadius = orbit + largest;
     }
     return positions;
   }
 
   function renderGraph(refit = false) {
     if (!graphState || graphState.identity !== state.identity) buildGraph();
-    const { representatives, byMember, buttons, teamPositions } = graphState;
+    const { representatives, byMember, buttons, views, teamPositions } = graphState;
     const firstNode = byMember.get(state.first);
     const secondNode = byMember.get(state.second);
     const focus = state.scope === "person" ? firstNode : null;
     const visibleEdges = connections(representatives, state.identity, state.threshold, focus);
-    const positions = focus === null ? teamPositions : personLayout(visibleEdges, focus);
-    const points = [...positions.values()];
+    const positions = focus === null ? teamPositions : personLayout(visibleEdges, focus, views);
+    const points = [...positions].map(([id, point]) => ({ ...point, radius: views.get(id).radius }));
     bounds = {
-      minX: Math.min(...points.map(point => point.x)) - 65,
-      maxX: Math.max(...points.map(point => point.x)) + 65,
-      minY: Math.min(...points.map(point => point.y)) - 62,
-      maxY: Math.max(...points.map(point => point.y)) + 76,
+      minX: Math.min(...points.map(point => point.x - point.radius)) - 26,
+      maxX: Math.max(...points.map(point => point.x + point.radius)) + 26,
+      minY: Math.min(...points.map(point => point.y - point.radius)) - 12,
+      maxY: Math.max(...points.map(point => point.y + point.radius)) + 34,
     };
-    renderClusterDetails(positions);
-    for (const [id, button] of buttons) {
+    for (const [id, { shape }] of views) {
       const point = positions.get(id);
-      button.hidden = !point;
+      shape.hidden = !point;
       if (!point) continue;
-      button.style.left = `${point.x}px`;
-      button.style.top = `${point.y}px`;
-      button.classList.toggle("first", id === firstNode);
-      button.classList.toggle("second", id === secondNode);
-      if (graphState.clusters.get(id).members.length > 1) {
-        button.setAttribute("aria-expanded", String(id === expandedCluster));
-      } else {
-        button.setAttribute("aria-pressed", String(id === secondNode));
-      }
+      shape.style.left = `${point.x}px`;
+      shape.style.top = `${point.y}px`;
+    }
+    for (const [id, button] of buttons) {
+      button.classList.toggle("first", id === state.first);
+      button.classList.toggle("second", id === state.second);
+      button.setAttribute("aria-pressed", String(id === state.second));
     }
     const lines = visibleEdges.map(edge => {
       const from = positions.get(edge.from);
@@ -256,15 +271,25 @@ function start(people) {
       const pair = [edge.from, edge.to];
       const selected = firstNode !== secondNode && pair.includes(firstNode) && pair.includes(secondNode);
       const focused = pair.includes(firstNode);
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const length = Math.hypot(dx, dy);
+      const fromOffset = views.get(edge.from).radius / length;
+      const toOffset = views.get(edge.to).radius / length;
       const line = document.createElementNS(svgNamespace, "line");
-      for (const [key, value] of Object.entries({ x1: from.x, y1: from.y, x2: to.x, y2: to.y })) line.setAttribute(key, value);
+      for (const [key, value] of Object.entries({
+        x1: from.x + dx * fromOffset,
+        y1: from.y + dy * fromOffset,
+        x2: to.x - dx * toOffset,
+        y2: to.y - dy * toOffset,
+      })) line.setAttribute(key, value);
       line.setAttribute("class", ["edge", edge.score === edge.total - 1 ? "strong" : "", focused ? "focused" : "", selected ? "selected" : ""].join(" "));
       return line;
     });
     edges.replaceChildren(...lines);
     element("graph-status").textContent = [
       focus === null ? "" : byId.get(state.first).name,
-      countLabel(positions.size, { one: "узел", few: "узла", many: "узлов" }),
+      countLabel([...positions.keys()].reduce((count, id) => count + views.get(id).cluster.members.length, 0), participantForms),
       countLabel(visibleEdges.length, { one: "связь", few: "связи", many: "связей" }),
       `от ${state.threshold} из ${state.identity ? 5 : 4}`,
     ].filter(Boolean).join(" · ");
@@ -404,22 +429,8 @@ function start(people) {
     setView("graph");
   });
   graphNodes.addEventListener("click", event => {
-    const button = event.target.closest("button[data-graph-node]");
-    if (!button) return;
-    const cluster = graphState.clusters.get(Number(button.dataset.graphNode));
-    if (cluster.members.length === 1) {
-      setPair(state.first, cluster.members[0].id);
-      return;
-    }
-    expandedCluster = expandedCluster === cluster.id ? null : cluster.id;
-    renderGraph();
-    if (expandedCluster === null) return;
-    if (event.detail === 0) clusterMembers.querySelector("button:not(:disabled)")?.focus();
-    else clusterDetails.scrollIntoView({ block: "nearest" });
-  });
-  clusterMembers.addEventListener("click", event => {
-    const button = event.target.closest("button[data-member]");
-    if (button) setPair(state.first, Number(button.dataset.member));
+    const button = event.target.closest("button[data-person]");
+    if (button) setPair(state.first, Number(button.dataset.person));
   });
   matrix.addEventListener("click", event => {
     const button = event.target.closest("button[data-row]");

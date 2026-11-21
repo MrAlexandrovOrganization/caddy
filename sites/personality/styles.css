@@ -80,11 +80,12 @@ select {
 }
 
 .graph-stage {
+  --graph-surface: #f9f7ff;
   position: relative;
   overflow: hidden;
   height: clamp(25rem, 60vh, 38rem);
   border-block: 1px solid var(--line);
-  background-color: #f9f7ff;
+  background-color: var(--graph-surface);
   background-image: radial-gradient(#d9d0ef 1px, transparent 1px);
   background-size: 19px 19px;
   cursor: grab;
@@ -93,6 +94,7 @@ select {
 .graph-stage.dragging { cursor: grabbing; }
 .graph-world { position: absolute; width: 960px; height: 600px; transform-origin: 0 0; }
 .graph-world svg, #graph-nodes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.graph-world svg { overflow: visible; }
 .edge { stroke: #8b80aa; stroke-width: 1.4; opacity: .24; }
 .edge.strong { stroke: #7659c8; stroke-width: 2.15; opacity: .49; }
 .edge.focused { stroke: #7659c8; stroke-width: 2.3; opacity: .67; }
@@ -106,8 +108,8 @@ select {
   display: grid;
   place-items: center;
   position: absolute;
-  width: 42px;
-  height: 42px;
+  width: var(--person-size);
+  height: var(--person-size);
   padding: 0;
   border: 2px solid var(--group-color);
   border-radius: 50%;
@@ -119,7 +121,7 @@ select {
   pointer-events: auto;
 }
 .graph-node:hover, .graph-node:focus-visible { z-index: 2; }
-.node-label {
+.node-label, .cluster-label {
   pointer-events: none;
   position: absolute;
   inset-block-start: calc(100% + 4px);
@@ -132,9 +134,15 @@ select {
   font-weight: 650;
   line-height: 1.25;
 }
-.graph-stage.compact .graph-node:not(.cluster, .first, .second, :hover, :focus-visible) .node-label { visibility: hidden; }
-.graph-node.cluster { width: 54px; height: 54px; font-size: 21px; }
-.graph-node.cluster[aria-expanded="true"] { outline: 2px solid var(--primary); outline-offset: 4px; }
+.graph-stage.compact .graph-node:not(.first, .second, :hover, :focus-visible) .node-label { visibility: hidden; }
+.graph-cluster {
+  position: absolute;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--group-color) 10%, var(--graph-surface));
+  box-shadow: inset 0 0 0 2px var(--group-color);
+  transform: translate(-50%, -50%);
+}
+.cluster-label { left: 50%; transform: translateX(-50%); color: var(--group-color); }
 .graph-node.first, .graph-node.second { z-index: 1; box-shadow: 0 0 0 5px #5435c74a; }
 .graph-node.first { color: #fff; background: var(--group-color); }
 .graph-node.second:not(.first) { background: var(--primary-light); }
@@ -153,20 +161,6 @@ select {
 .panel-footer { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem 1rem; padding: .73rem 1.1rem; color: var(--muted); font-size: .875rem; }
 .graph-legend span { display: inline-flex; align-items: center; gap: .35rem; }
 .graph-legend span::before { content: ""; width: .65rem; height: .65rem; border-radius: 50%; background: var(--group-color); }
-.cluster-details { padding: .8rem 1.1rem; border-bottom: 1px solid var(--line); }
-.cluster-details h3 { margin: 0 0 .45rem; font-size: 1rem; }
-.cluster-members { display: flex; flex-wrap: wrap; gap: .35rem; }
-.cluster-member {
-  min-height: 2.35rem;
-  padding: .22rem .55rem;
-  border: 1px solid var(--line);
-  border-radius: .5rem;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: .875rem;
-}
-.cluster-member[aria-pressed="true"] { background: var(--primary-light); border-color: var(--primary); }
-.cluster-member:disabled { color: var(--muted); cursor: default; }
 .cluster-hint { padding: .65rem 1.1rem 0; color: var(--muted); font-size: .875rem; }
 
 .comparison { position: sticky; top: 1rem; padding: 1rem; }
@@ -225,7 +219,7 @@ select {
 }
 @media (pointer: coarse) {
   select { font-size: 1rem; }
-  .view-switch button, .zoom-controls button, .cluster-member { min-height: 2.75rem; }
+  .view-switch button, .zoom-controls button { min-height: 2.75rem; }
 }
 @media (max-width: 410px) {
   .panel-head, .panel-footer { padding-inline: .75rem; }
