@@ -255,9 +255,6 @@ import {$LOCATION_INGRESS:location_disabled}
 		@write not method GET HEAD
 		@assets path / /index.html /styles.css /app.mjs /model.mjs /profiles.json
 		route {
-			basic_auth {
-				viewer {args[1]}
-			}
 			header @write Allow "GET, HEAD"
 			respond @write 405
 			file_server @assets
@@ -266,7 +263,7 @@ import {$LOCATION_INGRESS:location_disabled}
 	}
 }
 
-# Enable the private site only with a machine-local domain and password hash.
+# Enable the site only on machines with a configured domain.
 import personality.d/*.caddy
 
 # Bind only the dedicated metrics interface; do not expose the admin API.

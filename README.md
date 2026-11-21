@@ -74,14 +74,12 @@ Git игнорирует `caddy.env`, `.env*` и `headscale/config.yaml`. Сер
 `make personality-check` и полного `make check` требуется Node.js 20+.
 
 На машине публикации положите JSON-массив пар `[имя, код]` в игнорируемый
-`.runtime/caddy/personality/profiles.json`. Создайте закрытый файл
+`.runtime/caddy/personality/profiles.json`. Создайте файл
 `.runtime/caddy/personality.d/viewer.caddy` с директивой
-`import personality_site personality.example.com <bcrypt-хэш>`.
-Получите хэш через `caddy hash-password --algorithm bcrypt`, передав пароль
-через stdin. Ограничьте права этих каталогов и файлов владельцем. Для применённой
-конфигурации доступны `GET` и `HEAD` после HTTPS-аутентификации пользователя
-`viewer`. Запуск/перезагрузка Caddy доставляет статические файлы из checkout,
-сохраняя закрытый снимок данных.
+`import personality_site personality.example.com`. После включения сайта
+страница и снимок профилей доступны всем по HTTPS. Поддерживаются только
+`GET` и `HEAD`. Запуск и перезагрузка Caddy доставляют статические файлы из
+checkout, сохраняя снимок данных.
 
 Обновление профилей заменяет только `profiles.json`. Для отключения сайта
 переместите `viewer.caddy` за пределы `personality.d`, затем выполните
