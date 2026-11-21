@@ -83,7 +83,7 @@ select {
   --graph-surface: #f9f7ff;
   position: relative;
   overflow: hidden;
-  height: clamp(25rem, 60vh, 38rem);
+  height: clamp(27rem, 68vh, 42rem);
   border-block: 1px solid var(--line);
   background-color: var(--graph-surface);
   background-image: radial-gradient(#d9d0ef 1px, transparent 1px);
@@ -108,20 +108,22 @@ select {
   display: grid;
   place-items: center;
   position: absolute;
-  width: var(--person-size);
-  height: var(--person-size);
-  padding: 0;
+  width: max-content;
+  min-width: 46px;
+  min-height: 34px;
+  padding: 3px 9px;
   border: 2px solid var(--group-color);
-  border-radius: 50%;
+  border-radius: 999px;
   background: #fff;
   color: var(--group-color);
-  font-size: 15px;
-  font-weight: 780;
+  font-size: 16px;
+  font-weight: 670;
+  white-space: nowrap;
   transform: translate(-50%, -50%);
   pointer-events: auto;
 }
 .graph-node:hover, .graph-node:focus-visible { z-index: 2; }
-.node-label, .cluster-label {
+.cluster-label {
   pointer-events: none;
   position: absolute;
   inset-block-start: calc(100% + 4px);
@@ -134,7 +136,6 @@ select {
   font-weight: 650;
   line-height: 1.25;
 }
-.graph-stage.compact .graph-node:not(.first, .second, :hover, :focus-visible) .node-label { visibility: hidden; }
 .graph-cluster {
   position: absolute;
   border-radius: 50%;
@@ -215,7 +216,7 @@ select {
 @media (max-width: 840px) {
   .workspace-grid { grid-template-columns: minmax(0, 1fr); }
   .comparison { position: static; }
-  .graph-stage { height: clamp(23rem, 55vh, 32rem); }
+  .graph-stage { height: clamp(24rem, 65vh, 36rem); }
 }
 @media (pointer: coarse) {
   select { font-size: 1rem; }

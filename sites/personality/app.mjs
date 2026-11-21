@@ -4,8 +4,6 @@ const element = id => document.getElementById(id);
 const svgNamespace = "http://www.w3.org/2000/svg";
 const width = 960;
 const height = 600;
-const personRadius = 21;
-const outlinePadding = 8;
 const pluralRules = new Intl.PluralRules("ru");
 const participantForms = { one: "участник", few: "участника", many: "участников" };
 
@@ -25,30 +23,39 @@ function circlePoint(index, count, x, y, radiusX, radiusY) {
   return { x: x + Math.cos(angle) * radiusX, y: y + Math.sin(angle) * radiusY };
 }
 
-function clusterOrbit(count) {
-  return Math.max(29, (personRadius + 6) / Math.sin(Math.PI / count));
+function packRows(items, columns, columnGap, rowGap) {
+  if (!items.length) return { width: 0, height: 0, positions: [] };
+  const rows = [];
+  for (let start = 0; start < items.length; start += columns) {
+    const cells = items.slice(start, start + columns);
+    rows.push({
+      cells,
+      width: cells.reduce((sum, cell) => sum + 2 * cell.rx, columnGap * (cells.length - 1)),
+      height: Math.max(...cells.map(cell => 2 * cell.ry)),
+    });
+  }
+  const packedWidth = Math.max(...rows.map(row => row.width));
+  let top = 0;
+  const positions = rows.flatMap(row => {
+    let left = (packedWidth - row.width) / 2;
+    const y = top + row.height / 2;
+    top += row.height + rowGap;
+    return row.cells.map(cell => {
+      const x = left + cell.rx;
+      left += 2 * cell.rx + columnGap;
+      return [cell.id, { x, y }];
+    });
+  });
+  return { width: packedWidth, height: top - rowGap, positions };
 }
 
 function layoutTeam(views) {
-  const gap = 42;
+  const gap = 38;
   const blocks = groups.map(group => {
-    const members = [...views.values()].filter(view => view.cluster.group === group.id);
-    if (!members.length) return { width: 0, height: 0, positions: [] };
-    const columns = Math.ceil(Math.sqrt(members.length));
-    const rows = Math.ceil(members.length / columns);
-    const radius = Math.max(...members.map(view => view.radius));
-    const stepX = 2 * radius + 26;
-    const stepY = 2 * radius + 34;
-    const blockWidth = columns * stepX - 26;
-    const positions = members.map(({ cluster }, index) => {
-      const row = Math.floor(index / columns);
-      const rowSize = Math.min(columns, members.length - row * columns);
-      return [cluster.id, {
-        x: blockWidth / 2 + (index % columns - (rowSize - 1) / 2) * stepX,
-        y: radius + row * stepY,
-      }];
-    });
-    return { width: blockWidth, height: rows * stepY - 34, positions };
+    const members = [...views.values()]
+      .filter(view => view.cluster.group === group.id)
+      .map(({ cluster, rx, ry }) => ({ id: cluster.id, rx, ry }));
+    return packRows(members, Math.ceil(Math.sqrt(members.length)), 24, 26);
   });
   const columnWidths = [Math.max(blocks[0].width, blocks[2].width), Math.max(blocks[1].width, blocks[3].width)];
   const rowHeights = [Math.max(blocks[0].height, blocks[1].height), Math.max(blocks[2].height, blocks[3].height)];
@@ -81,7 +88,6 @@ function start(people) {
   const world = element("graph-world");
   const edges = element("edges");
   const graphNodes = element("graph-nodes");
-  world.style.setProperty("--person-size", `${2 * personRadius}px`);
   const matrixPanel = element("matrix-panel");
   const matrix = element("matrix");
   const threshold = element("threshold");
@@ -138,7 +144,6 @@ function start(people) {
 
   function applyCamera() {
     world.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.scale})`;
-    stage.classList.toggle("compact", camera.scale < .65);
   }
 
   let bounds = { minX: 0, minY: 0, maxX: width, maxY: height };
@@ -171,42 +176,54 @@ function start(people) {
   function buildGraph() {
     const clusters = profileClusters(alphabetical, state.identity);
     const byMember = new Map();
-    const buttons = new Map();
+    const buttons = new Map(alphabetical.map(person => {
+      const button = node("button", person.name, "graph-node");
+      button.type = "button";
+      button.dataset.group = person.group;
+      button.dataset.person = person.id;
+      button.title = `${person.name} · ${person.code}`;
+      button.setAttribute("aria-label", button.title);
+      return [person.id, button];
+    }));
+    graphNodes.replaceChildren(...buttons.values());
+    const sizes = new Map([...buttons].map(([id, button]) => [id, {
+      id,
+      rx: button.offsetWidth / 2,
+      ry: button.offsetHeight / 2,
+    }]));
     const views = new Map();
     for (const cluster of clusters) {
-      const multiple = cluster.members.length > 1;
-      const orbit = multiple ? clusterOrbit(cluster.members.length) : 0;
-      const radius = multiple ? orbit + personRadius + outlinePadding : personRadius;
-      const members = cluster.members.map((person, index) => {
-        byMember.set(person.id, cluster.id);
-        const button = node("button", "", "graph-node");
-        button.type = "button";
-        button.dataset.group = person.group;
-        button.dataset.person = person.id;
-        button.title = `${person.name} · ${person.code}`;
-        button.setAttribute("aria-label", button.title);
-        const initials = person.name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toLocaleUpperCase("ru");
-        button.append(node("span", initials));
-        if (multiple) {
-          const point = circlePoint(index, cluster.members.length, radius, radius, orbit, orbit);
-          button.style.left = `${point.x}px`;
-          button.style.top = `${point.y}px`;
-        } else {
-          button.append(node("span", person.name, "node-label"));
-        }
-        buttons.set(person.id, button);
-        return button;
-      });
-      let shape = members[0];
-      if (multiple) {
+      const members = cluster.members.map(person => sizes.get(person.id));
+      for (const { id } of members) byMember.set(id, cluster.id);
+      let { rx, ry } = members[0];
+      let shape = buttons.get(cluster.id);
+      if (members.length > 1) {
+        const packed = packRows(members, Math.round(Math.sqrt(members.length)), 8, 7);
+        const centerX = packed.width / 2;
+        const centerY = packed.height / 2;
+        ry = centerY + 20;
+        // Enclose the outer corners of each name's box, including a small gap.
+        rx = Math.ceil(Math.max(...packed.positions.map(([id, point]) => {
+          const member = sizes.get(id);
+          const x = Math.abs(point.x - centerX) + member.rx + 8;
+          const y = (Math.abs(point.y - centerY) + member.ry + 4) / ry;
+          return x / Math.sqrt(1 - y * y);
+        })));
         shape = node("div", "", "graph-cluster");
         shape.dataset.group = cluster.group;
         shape.setAttribute("role", "group");
         shape.setAttribute("aria-label", `${cluster.code} · ${countLabel(cluster.members.length, participantForms)}`);
-        shape.style.width = shape.style.height = `${2 * radius}px`;
-        shape.append(...members, node("span", cluster.code, "cluster-label"));
+        shape.style.width = `${2 * rx}px`;
+        shape.style.height = `${2 * ry}px`;
+        for (const [id, point] of packed.positions) {
+          const button = buttons.get(id);
+          button.style.left = `${rx + point.x - centerX}px`;
+          button.style.top = `${ry + point.y - centerY}px`;
+          shape.append(button);
+        }
+        shape.append(node("span", cluster.code, "cluster-label"));
       }
-      views.set(cluster.id, { cluster, shape, radius });
+      views.set(cluster.id, { cluster, shape, rx, ry });
     }
     graphNodes.replaceChildren(...[...views.values()].map(view => view.shape));
     graphState = {
@@ -222,12 +239,13 @@ function start(people) {
   function personLayout(graphEdges, focus, views) {
     const positions = new Map([[focus, { x: width / 2, y: height / 2 }]]);
     const total = state.identity ? 5 : 4;
-    let occupiedRadius = views.get(focus).radius;
+    const outerRadius = id => Math.max(views.get(id).rx, views.get(id).ry);
+    let occupiedRadius = outerRadius(focus);
     for (let score = total; score >= state.threshold; score--) {
       const neighbors = graphEdges.filter(edge => edge.score === score)
         .map(edge => edge.from === focus ? edge.to : edge.from);
       if (!neighbors.length) continue;
-      const largest = Math.max(...neighbors.map(id => views.get(id).radius));
+      const largest = Math.max(...neighbors.map(outerRadius));
       const spacing = neighbors.length > 1 ? (largest + 16) / Math.sin(Math.PI / neighbors.length) : 0;
       const orbit = Math.max(occupiedRadius + largest + 38, spacing);
       for (const [index, id] of neighbors.entries()) {
@@ -246,12 +264,15 @@ function start(people) {
     const focus = state.scope === "person" ? firstNode : null;
     const visibleEdges = connections(representatives, state.identity, state.threshold, focus);
     const positions = focus === null ? teamPositions : personLayout(visibleEdges, focus, views);
-    const points = [...positions].map(([id, point]) => ({ ...point, radius: views.get(id).radius }));
+    const points = [...positions].map(([id, point]) => {
+      const { rx, ry } = views.get(id);
+      return { ...point, rx, ry };
+    });
     bounds = {
-      minX: Math.min(...points.map(point => point.x - point.radius)) - 26,
-      maxX: Math.max(...points.map(point => point.x + point.radius)) + 26,
-      minY: Math.min(...points.map(point => point.y - point.radius)) - 12,
-      maxY: Math.max(...points.map(point => point.y + point.radius)) + 34,
+      minX: Math.min(...points.map(point => point.x - point.rx)) - 24,
+      maxX: Math.max(...points.map(point => point.x + point.rx)) + 24,
+      minY: Math.min(...points.map(point => point.y - point.ry)) - 12,
+      maxY: Math.max(...points.map(point => point.y + point.ry)) + 31,
     };
     for (const [id, { shape }] of views) {
       const point = positions.get(id);
@@ -273,9 +294,10 @@ function start(people) {
       const focused = pair.includes(firstNode);
       const dx = to.x - from.x;
       const dy = to.y - from.y;
-      const length = Math.hypot(dx, dy);
-      const fromOffset = views.get(edge.from).radius / length;
-      const toOffset = views.get(edge.to).radius / length;
+      const a = views.get(edge.from);
+      const b = views.get(edge.to);
+      const fromOffset = 1 / Math.hypot(dx / a.rx, dy / a.ry);
+      const toOffset = 1 / Math.hypot(dx / b.rx, dy / b.ry);
       const line = document.createElementNS(svgNamespace, "line");
       for (const [key, value] of Object.entries({
         x1: from.x + dx * fromOffset,
