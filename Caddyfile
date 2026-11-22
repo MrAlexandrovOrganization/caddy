@@ -280,10 +280,12 @@ http://:9180 {
 (notes_mobile_vpn) {
 	https://{args[0]} {
 		import safe_access notes-mobile
-		import vpn_only
-		@mobile path /mobile/v1/*
-		reverse_proxy @mobile {args[1]}
-		respond 404
+		route {
+			import vpn_only
+			@mobile path /mobile/v1/*
+			reverse_proxy @mobile {args[1]}
+			respond 404
+		}
 	}
 }
 
