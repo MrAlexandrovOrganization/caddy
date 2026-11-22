@@ -1,12 +1,13 @@
-import { compare, connections, dimensions, groups, profileClusters, readProfiles } from "./model.mjs";
+import { compare, connections, dimensions, groups, profileClusters, readSnapshot } from "./model.mjs";
 
 const element = id => document.getElementById(id);
 const svgNamespace = "http://www.w3.org/2000/svg";
 const width = 960;
 const height = 600;
-const includeIdentity = true;
 const axisCount = dimensions.length;
 const pluralRules = new Intl.PluralRules("ru");
+const numberFormat = new Intl.NumberFormat("ru", { maximumFractionDigits: 1 });
+const formatScore = score => `${numberFormat.format(score)}%`;
 const participantForms = { one: "участник", few: "участника", many: "участников" };
 
 function node(tag, text = "", className = "") {
@@ -70,16 +71,18 @@ function layoutTeam(views) {
   }));
 }
 
-function start(people) {
+function start({ people, measurements }) {
   const byId = new Map(people.map(person => [person.id, person]));
   const alphabetical = [...people].sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const byType = [...alphabetical].sort((a, b) => a.code.localeCompare(b.code));
+  const [closest] = people.slice(1).map(person => ({ id: person.id, ...compare(people[0], person, measurements) }))
+    .sort((a, b) => b.measured - a.measured || b.score - a.score);
   const state = {
     first: people[0].id,
-    second: people[Math.min(2, people.length - 1)].id,
+    second: closest.id,
     view: "graph",
     scope: "team",
-    threshold: 3,
+    threshold: 80,
     order: "name",
   };
   const first = element("first");
@@ -92,6 +95,7 @@ function start(people) {
   const matrixPanel = element("matrix-panel");
   const matrix = element("matrix");
   const threshold = element("threshold");
+  const measuredOnly = element("measured-only");
   const viewButtons = [...document.querySelectorAll("[data-view]")];
   let matrixState = null;
   let graphState = null;
@@ -115,6 +119,7 @@ function start(people) {
   element("coverage").textContent = [
     countLabel(people.length, participantForms),
     countLabel(people.length * (people.length - 1) / 2, { one: "пара", few: "пары", many: "пар" }),
+    `${countLabel(measurements.size, { one: "пара", few: "пары", many: "пар" })} с общими процентами`,
   ].join(" · ");
   element("scope").value = state.scope;
 
@@ -126,19 +131,23 @@ function start(people) {
     for (const option of first.options) option.disabled = Number(option.value) === b.id;
     for (const option of second.options) option.disabled = Number(option.value) === a.id;
 
-    const { score, total, axes } = compare(a, b, includeIdentity);
+    const { score, matches, measured, axes } = compare(a, b, measurements);
     const name = node("p", `${a.name} × ${b.name}`, "pair-name");
     const codes = node("p", `${a.code} / ${b.code}`, "pair-codes");
-    const tally = node("p", `${score} из ${total} `, "pair-score");
-    tally.append(node("small", "совпали"));
+    const tally = node("p", `${formatScore(score)} `, "pair-score");
+    tally.append(node("small", "сходство профилей"));
+    const basis = node("p", measured ? `По процентам — ${measured} из ${axisCount} шкал` : "Оценка по буквам типа", "meta");
+    const letters = node("p", `Совпали буквы на ${matches} из ${axisCount} шкал`, "meta");
     const breakdown = node("dl", "", "axes");
     for (const axis of axes) {
       const equal = axis.first === axis.second;
       const row = node("div", "", equal ? "match" : "");
-      row.append(node("dt", axis.label), node("dd", equal ? `${axis.first} · совпало` : `${axis.first} / ${axis.second}`));
+      const values = node("dd", equal ? axis.first : `${axis.first} / ${axis.second}`);
+      if (axis.measured) values.append(node("small", "по %"));
+      row.append(node("dt", axis.label), values);
       breakdown.append(row);
     }
-    element("pair-details").replaceChildren(name, codes, tally, breakdown);
+    element("pair-details").replaceChildren(name, codes, tally, basis, letters, breakdown);
   }
 
   function applyCamera() {
@@ -173,7 +182,7 @@ function start(people) {
   }
 
   function buildGraph() {
-    const clusters = profileClusters(alphabetical, includeIdentity);
+    const clusters = profileClusters(alphabetical);
     const byMember = new Map();
     const buttons = new Map(alphabetical.map(person => {
       const button = node("button", person.name, "graph-node");
@@ -226,7 +235,7 @@ function start(people) {
     }
     graphNodes.replaceChildren(...[...views.values()].map(view => view.shape));
     graphState = {
-      representatives: clusters.map(cluster => cluster.members[0]),
+      clusters,
       byMember,
       buttons,
       views,
@@ -238,8 +247,8 @@ function start(people) {
     const positions = new Map([[focus, { x: width / 2, y: height / 2 }]]);
     const outerRadius = id => Math.max(views.get(id).rx, views.get(id).ry);
     let occupiedRadius = outerRadius(focus);
-    for (let score = axisCount; score >= state.threshold; score--) {
-      const neighbors = graphEdges.filter(edge => edge.score === score)
+    for (const [minimum, maximum] of [[90, 101], [80, 90], [0, 80]]) {
+      const neighbors = graphEdges.filter(edge => edge.score >= minimum && edge.score < maximum)
         .map(edge => edge.from === focus ? edge.to : edge.from);
       if (!neighbors.length) continue;
       const largest = Math.max(...neighbors.map(outerRadius));
@@ -255,11 +264,10 @@ function start(people) {
 
   function renderGraph(refit = false) {
     if (!graphState) buildGraph();
-    const { representatives, byMember, buttons, views, teamPositions } = graphState;
+    const { clusters, byMember, buttons, views, teamPositions } = graphState;
     const firstNode = byMember.get(state.first);
-    const secondNode = byMember.get(state.second);
     const focus = state.scope === "person" ? firstNode : null;
-    const visibleEdges = connections(representatives, includeIdentity, state.threshold, focus);
+    const visibleEdges = connections(clusters, measurements, state.threshold, focus === null ? null : state.first, measuredOnly.checked);
     const positions = focus === null ? teamPositions : personLayout(visibleEdges, focus, views);
     const points = [...positions].map(([id, point]) => {
       const { rx, ry } = views.get(id);
@@ -287,7 +295,8 @@ function start(people) {
       const from = positions.get(edge.from);
       const to = positions.get(edge.to);
       const pair = [edge.from, edge.to];
-      const selected = firstNode !== secondNode && pair.includes(firstNode) && pair.includes(secondNode);
+      const members = [edge.first, edge.second];
+      const selected = members.includes(state.first) && members.includes(state.second);
       const focused = pair.includes(firstNode);
       const dx = to.x - from.x;
       const dy = to.y - from.y;
@@ -302,15 +311,23 @@ function start(people) {
         x2: to.x - dx * toOffset,
         y2: to.y - dy * toOffset,
       })) line.setAttribute(key, value);
-      line.setAttribute("class", ["edge", edge.score === edge.total - 1 ? "strong" : "", focused ? "focused" : "", selected ? "selected" : ""].join(" "));
-      return line;
+      line.setAttribute("class", ["edge", edge.measured < axisCount ? "incomplete" : "", edge.score >= 90 ? "strong" : "", focused ? "focused" : "", selected ? "selected" : ""].join(" "));
+      const hit = line.cloneNode();
+      hit.setAttribute("class", "edge-hit");
+      const group = document.createElementNS(svgNamespace, "g");
+      group.dataset.first = edge.first;
+      group.dataset.second = edge.second;
+      const title = document.createElementNS(svgNamespace, "title");
+      title.textContent = `${byId.get(edge.first).name} × ${byId.get(edge.second).name} · ${formatScore(edge.score)} · по процентам ${edge.measured} из ${axisCount} шкал`;
+      group.append(title, line, hit);
+      return group;
     });
     edges.replaceChildren(...lines);
     element("graph-status").textContent = [
       focus === null ? "" : byId.get(state.first).name,
       countLabel([...positions.keys()].reduce((count, id) => count + views.get(id).cluster.members.length, 0), participantForms),
       countLabel(visibleEdges.length, { one: "связь", few: "связи", many: "связей" }),
-      `от ${state.threshold} из ${axisCount}`,
+      `от ${formatScore(state.threshold)}`,
     ].filter(Boolean).join(" · ");
     if (refit || fitted) fit();
   }
@@ -344,14 +361,15 @@ function start(people) {
       for (const [j, counterpart] of rows.entries()) {
         const cell = node("td", i === j ? "—" : "");
         if (i !== j) {
-          const { score, total } = compare(person, counterpart, includeIdentity);
-          const button = node("button", score, "matrix-cell");
+          const { score, measured } = compare(person, counterpart, measurements);
+          const button = node("button", formatScore(score), "matrix-cell");
           button.type = "button";
           button.tabIndex = -1;
           button.dataset.row = i;
           button.dataset.column = j;
-          button.dataset.score = score;
-          button.title = `${person.name} × ${counterpart.name} · ${score} из ${total}`;
+          button.dataset.score = Math.floor(score / 20);
+          button.dataset.measured = measured;
+          button.title = `${person.name} × ${counterpart.name} · ${formatScore(score)} · по процентам ${measured} из ${axisCount} шкал`;
           button.setAttribute("aria-label", button.title);
           cells.set(`${person.id}/${counterpart.id}`, button);
           cell.append(button);
@@ -360,9 +378,10 @@ function start(people) {
       }
       body.append(row);
     }
+    matrix.style.minWidth = `${6 + rows.length * 3}rem`;
     matrix.replaceChildren(head, body);
     const key = Array.from({ length: axisCount + 1 }, (_, value) => {
-      const swatch = node("span", value);
+      const swatch = node("span", formatScore(value * 20));
       swatch.dataset.score = value;
       return swatch;
     });
@@ -407,9 +426,9 @@ function start(people) {
     else renderMatrix();
   }
 
-  threshold.replaceChildren(...Array.from({ length: axisCount }, (_, i) => {
-    const option = node("option", `${i + 1} из ${axisCount}`);
-    option.value = i + 1;
+  threshold.replaceChildren(...[0, 20, 40, 60, 70, 80, 90, 95, 100].map(value => {
+    const option = node("option", value ? formatScore(value) : "Без минимума");
+    option.value = value;
     return option;
   }));
   threshold.value = state.threshold;
@@ -424,6 +443,7 @@ function start(people) {
     state.threshold = Number(event.target.value);
     renderGraph(state.scope === "person");
   });
+  measuredOnly.addEventListener("change", () => renderGraph(state.scope === "person"));
   element("matrix-order").addEventListener("change", event => {
     state.order = event.target.value;
     renderMatrix();
@@ -437,6 +457,14 @@ function start(people) {
   graphNodes.addEventListener("click", event => {
     const button = event.target.closest("button[data-person]");
     if (button) setPair(state.first, Number(button.dataset.person));
+  });
+  edges.addEventListener("click", event => {
+    const edge = event.target.closest("[data-first]");
+    if (!edge) return;
+    const a = Number(edge.dataset.first);
+    const b = Number(edge.dataset.second);
+    if (b === state.first) setPair(b, a);
+    else setPair(a, b);
   });
   matrix.addEventListener("click", event => {
     const button = event.target.closest("button[data-row]");
@@ -465,7 +493,7 @@ function start(people) {
   element("zoom-reset").addEventListener("click", fit);
   let drag = null;
   stage.addEventListener("pointerdown", event => {
-    if (event.button !== 0 || event.target.closest("button")) return;
+    if (event.button !== 0 || event.target.closest("button, [data-first]")) return;
     drag = { id: event.pointerId, x: event.clientX - camera.x, y: event.clientY - camera.y };
     stage.setPointerCapture(event.pointerId);
     stage.classList.add("dragging");
@@ -490,7 +518,7 @@ function start(people) {
 try {
   const response = await fetch("./profiles.json", { cache: "no-store" });
   if (!response.ok) throw new Error("Profiles unavailable");
-  start(readProfiles(await response.json()));
+  start(readSnapshot(await response.json()));
 } catch (error) {
   element("coverage").textContent = "";
   const message = element("load-error");

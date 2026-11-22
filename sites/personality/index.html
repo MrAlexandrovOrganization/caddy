@@ -41,7 +41,8 @@
             </div>
             <div class="filter-row">
               <label>Показывать<select id="scope"><option value="team">Вся команда</option><option value="person">Выбранный участник</option></select></label>
-              <label>Минимум совпадений<select id="threshold"></select></label>
+              <label>Сходство от<select id="threshold"></select></label>
+              <label class="check-filter"><input type="checkbox" id="measured-only"> Есть общие проценты</label>
             </div>
           </div>
           <div class="graph-stage" id="graph-stage" aria-label="Граф совпадений профилей">
@@ -55,7 +56,8 @@
               <button type="button" id="zoom-in" aria-label="Увеличить">+</button>
             </div>
           </div>
-          <p class="cluster-hint">Общая обводка объединяет людей с одинаковым профилем. Нажми на имя, чтобы выбрать участника для сравнения.</p>
+          <p class="cluster-hint">Обводка объединяет людей с одинаковым типом. Нажми на имя или линию, чтобы сравнить пару.</p>
+          <div class="edge-legend"><span>Все 5 шкал по процентам</span><span class="incomplete">Есть шкалы по буквам</span></div>
           <div class="panel-footer graph-legend" id="graph-legend" aria-label="Группы типов"></div>
         </section>
 
@@ -67,7 +69,10 @@
           <div class="matrix-scroll" tabindex="0" aria-label="Прокручиваемая матрица пар">
             <table id="matrix" aria-labelledby="matrix-title"></table>
           </div>
-          <div class="panel-footer"><span>Совпадения</span><div id="matrix-key" class="matrix-key" aria-label="Шкала числа совпадений"></div></div>
+          <div class="panel-footer">
+            <span>Сходство</span><div id="matrix-key" class="matrix-key" aria-label="Шкала сходства"></div>
+            <span class="matrix-indicator">Есть общие проценты</span>
+          </div>
         </section>
 
         <aside class="comparison" aria-labelledby="compare-title">
@@ -79,9 +84,11 @@
         </aside>
       </div>
 
-      <footer class="site-footer">
-        Сходство профилей — число совпавших букв по пяти шкалам теста, включая A/T.
-      </footer>
+      <details class="site-footer">
+        <summary>Как считается сходство</summary>
+        <p>Оценка — среднее по пяти шкалам, включая A/T. Если у обоих есть проценты, переводим их на одну сторону шкалы и вычитаем разницу из 100. Например, 51% E и 51% I разделяют 2 процентных пункта, поэтому сходство по шкале — 98%. Если процент есть только у одного или отсутствует у обоих, совпавшая буква даёт 100%, разная — 0%.</p>
+        <p>Для линии между обводками выбираем пару с наибольшим числом общих процентов, затем с наибольшим сходством. В режиме участника сравниваем именно его. Оценка описывает сходство результатов теста.</p>
+      </details>
     </div>
   </main>
 </body>

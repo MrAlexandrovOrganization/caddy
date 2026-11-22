@@ -61,6 +61,8 @@ main { padding-block: clamp(1.8rem, 4.5vw, 3.75rem) 2rem; }
 .meta { color: var(--muted); font-size: .875rem; margin-top: .2rem; }
 .filter-row { display: flex; flex-wrap: wrap; gap: .55rem; }
 label { display: flex; flex-direction: column; gap: .25rem; color: var(--muted); font-size: .875rem; font-weight: 560; }
+.check-filter { flex-direction: row; align-items: center; align-self: end; min-height: 2.45rem; padding-inline: .25rem; }
+.check-filter input { accent-color: var(--primary); }
 select {
   appearance: none;
   width: 100%;
@@ -94,9 +96,12 @@ select {
 .graph-world svg, #graph-nodes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .graph-world svg { overflow: visible; }
 .edge { stroke: #8b80aa; stroke-width: 1.4; opacity: .24; }
+.edge.incomplete { stroke-dasharray: 5 4; }
 .edge.strong { stroke: #7659c8; stroke-width: 2.15; opacity: .49; }
 .edge.focused { stroke: #7659c8; stroke-width: 2.3; opacity: .67; }
 .edge.selected { stroke: var(--primary); opacity: 1; stroke-width: 3.8; }
+.edge-hit { stroke: transparent; stroke-width: 12; pointer-events: stroke; cursor: pointer; }
+#edges g:hover .edge { stroke: var(--primary); opacity: 1; }
 
 [data-group="diplomats"] { --group-color: var(--diplomats); }
 [data-group="analysts"] { --group-color: var(--analysts); }
@@ -161,6 +166,10 @@ select {
 .graph-legend span { display: inline-flex; align-items: center; gap: .35rem; }
 .graph-legend span::before { content: ""; width: .65rem; height: .65rem; border-radius: 50%; background: var(--group-color); }
 .cluster-hint { padding: .65rem 1.1rem 0; color: var(--muted); font-size: .875rem; }
+.edge-legend { display: flex; flex-wrap: wrap; gap: .35rem 1rem; padding: .45rem 1.1rem 0; color: var(--muted); font-size: .82rem; }
+.edge-legend span, .matrix-indicator { display: inline-flex; align-items: center; gap: .4rem; }
+.edge-legend span::before { content: ""; width: 1.25rem; border-top: 2px solid var(--primary); }
+.edge-legend .incomplete::before { border-top-style: dashed; }
 
 .comparison { position: sticky; top: 1rem; padding: 1rem; }
 .comparison > label { margin-top: .7rem; }
@@ -173,6 +182,7 @@ select {
 .axes div { display: grid; align-items: start; grid-template-columns: 1fr auto; gap: .3rem; padding-block: .32rem; border-bottom: 1px solid var(--line); font-size: .86rem; }
 .axes dt { font-weight: 540; }
 .axes dd { margin: 0; white-space: nowrap; color: var(--muted); }
+.axes dd small { margin-inline-start: .4rem; padding: .08rem .26rem; border-radius: .25rem; background: var(--primary-light); font-weight: 550; color: var(--muted); }
 .axes .match dd { color: #11755c; font-weight: 680; }
 .focus-button { width: 100%; background: var(--primary-light); color: var(--primary); }
 
@@ -188,6 +198,7 @@ select {
 #matrix td { padding: 0; text-align: center; color: var(--muted); font-size: .78rem; }
 .matrix-cell, .matrix-key span { background: var(--score-fill); }
 .matrix-cell {
+  position: relative;
   display: grid;
   place-items: center;
   width: 100%;
@@ -199,9 +210,11 @@ select {
   font-size: .78rem;
   font-variant-numeric: tabular-nums;
 }
+.matrix-cell:not([data-measured="0"])::after, .matrix-indicator::before { content: ""; width: .27rem; height: .27rem; border-radius: 50%; background: var(--primary); }
+.matrix-cell:not([data-measured="0"])::after { position: absolute; top: .14rem; right: .14rem; }
 .matrix-cell:hover, .matrix-cell[aria-current="true"] { box-shadow: inset 0 0 0 2px var(--primary); }
 .matrix-key { display: flex; gap: .2rem; }
-.matrix-key span { min-width: 1.52rem; border-radius: .22rem; text-align: center; color: var(--ink); }
+.matrix-key span { min-width: 2.3rem; border-radius: .22rem; text-align: center; color: var(--ink); }
 [data-score="0"] { --score-fill: #f5f1fa; }
 [data-score="1"] { --score-fill: #ebe4fb; }
 [data-score="2"] { --score-fill: #ded2fa; }
@@ -209,6 +222,8 @@ select {
 [data-score="4"] { --score-fill: #b59cec; }
 [data-score="5"] { --score-fill: #9c7de5; }
 .site-footer { margin-top: 1rem; font-size: .875rem; color: var(--muted); }
+.site-footer summary { cursor: pointer; font-weight: 650; }
+.site-footer p { margin-top: .55rem; max-width: 68ch; }
 
 @media (max-width: 840px) {
   .workspace-grid { grid-template-columns: minmax(0, 1fr); }
