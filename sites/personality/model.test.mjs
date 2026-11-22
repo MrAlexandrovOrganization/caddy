@@ -23,7 +23,8 @@ test("numeric comparisons use a common scale for opposite poles and handle parti
   ]);
   assert.deepEqual(snapshot.profiles, [["А", "ENFJ-A"], ["Б", "INFJ-T"], ["В", "INFJ-A"], ["Г", "ENFJ-T"]]);
   assert.deepEqual(snapshot.measurements, [[0, 1, 78.6, 31], [0, 2, 99.6, 1], [1, 2, 80, 1]]);
-  const { people: [first, second, third, fourth], measurements } = readSnapshot(snapshot);
+  const { people: [first, second, third, fourth], measurements, measuredIds } = readSnapshot(snapshot);
+  assert.deepEqual([...measuredIds], [0, 1, 2]);
   const forward = compare(first, second, measurements);
   const reverse = compare(second, first, measurements);
   assert.deepEqual([forward.score, forward.matches, forward.measured], [78.6, 3, 5]);

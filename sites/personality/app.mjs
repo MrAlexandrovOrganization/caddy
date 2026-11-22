@@ -81,7 +81,7 @@ function layoutTeam(views) {
   }])]);
 }
 
-function start({ people, measurements }) {
+function start({ people, measurements, measuredIds }) {
   const byId = new Map(people.map(person => [person.id, person]));
   const alphabetical = [...people].sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const reported = alphabetical.filter(person => person.code !== null);
@@ -110,6 +110,7 @@ function start({ people, measurements }) {
   const matrix = element("matrix");
   const threshold = element("threshold");
   const measuredOnly = element("measured-only");
+  const matrixMeasuredOnly = element("matrix-measured-only");
   const viewButtons = [...document.querySelectorAll("[data-view]")];
   let matrixState = null;
   let graphState = null;
@@ -352,9 +353,20 @@ function start({ people, measurements }) {
     if (refit || fitted) fit();
   }
 
-  const ordered = () => state.order === "type" ? byType : alphabetical;
   function buildMatrix() {
-    const rows = ordered();
+    const filtered = matrixMeasuredOnly.checked;
+    const ordered = state.order === "type" ? byType : alphabetical;
+    const rows = filtered ? ordered.filter(person => measuredIds.has(person.id)) : ordered;
+    const status = element("matrix-status");
+    status.textContent = "Выбери ячейку для сравнения.";
+    if (filtered) {
+      status.textContent = rows.length
+        ? `${rows.length} из ${people.length} участников`
+        : "Нет пар с общими процентами.";
+    }
+    element("matrix-scroll").hidden = rows.length === 0;
+    element("matrix-footer").hidden = rows.length === 0;
+    element("matrix-unrated").textContent = filtered ? "— Нет общих процентов" : `— ${noResult}`;
     const head = node("thead");
     const heading = node("tr");
     const corner = node("th", "Участники");
@@ -382,7 +394,7 @@ function start({ people, measurements }) {
         const cell = node("td", i === j ? "—" : "");
         if (i !== j) {
           const { score, measured } = compare(person, counterpart, measurements);
-          const available = score !== null;
+          const available = score !== null && (!filtered || measured > 0);
           const button = node("button", available ? formatScore(score) : "—", "matrix-cell");
           button.type = "button";
           button.tabIndex = -1;
@@ -391,7 +403,9 @@ function start({ people, measurements }) {
           if (available) button.dataset.score = Math.floor(score / 20);
           button.toggleAttribute("data-unrated", !available);
           button.toggleAttribute("data-missing-percentages", measured < axisCount);
-          const details = available ? `${formatScore(score)} · по процентам ${measured} из ${axisCount} шкал` : noResult;
+          const details = available
+            ? `${formatScore(score)} · по процентам ${measured} из ${axisCount} шкал`
+            : score === null ? noResult : "Нет общих процентов";
           button.title = `${person.name} × ${counterpart.name} · ${details}`;
           button.setAttribute("aria-label", button.title);
           cells.set(`${person.id}/${counterpart.id}`, button);
@@ -409,25 +423,28 @@ function start({ people, measurements }) {
       return swatch;
     });
     element("matrix-key").replaceChildren(...key);
-    matrixState = { order: state.order, columns, rowHeaders, cells, selected: null };
+    matrixState = { order: state.order, filtered, rows, columns, rowHeaders, cells, selected: null, tabStop: null };
   }
 
   function renderMatrix() {
-    if (!matrixState || matrixState.order !== state.order) buildMatrix();
-    const { selected, columns, rowHeaders, cells } = matrixState;
+    if (!matrixState || matrixState.order !== state.order || matrixState.filtered !== matrixMeasuredOnly.checked) buildMatrix();
+    const { selected, columns, rowHeaders, cells, tabStop } = matrixState;
+    if (tabStop) tabStop.tabIndex = -1;
     if (selected) {
       rowHeaders.get(selected[0]).removeAttribute("data-selected");
       columns.get(selected[1]).removeAttribute("data-selected");
-      const old = cells.get(selected.join("/"));
-      old.removeAttribute("aria-current");
-      old.tabIndex = -1;
+      cells.get(selected.join("/")).removeAttribute("aria-current");
     }
-    rowHeaders.get(state.first).dataset.selected = "true";
-    columns.get(state.second).dataset.selected = "true";
     const current = cells.get(`${state.first}/${state.second}`);
-    current.setAttribute("aria-current", "true");
-    current.tabIndex = 0;
-    matrixState.selected = [state.first, state.second];
+    matrixState.selected = null;
+    if (current) {
+      rowHeaders.get(state.first).dataset.selected = "true";
+      columns.get(state.second).dataset.selected = "true";
+      current.setAttribute("aria-current", "true");
+      matrixState.selected = [state.first, state.second];
+    }
+    matrixState.tabStop = current ?? cells.values().next().value;
+    if (matrixState.tabStop) matrixState.tabStop.tabIndex = 0;
   }
 
   function setPair(a, b) {
@@ -467,6 +484,7 @@ function start({ people, measurements }) {
     renderGraph(state.scope === "person");
   });
   measuredOnly.addEventListener("change", () => renderGraph(state.scope === "person"));
+  matrixMeasuredOnly.addEventListener("change", renderMatrix);
   element("matrix-order").addEventListener("change", event => {
     state.order = event.target.value;
     renderMatrix();
@@ -492,7 +510,7 @@ function start({ people, measurements }) {
   matrix.addEventListener("click", event => {
     const button = event.target.closest("button[data-row]");
     if (!button) return;
-    const rows = ordered();
+    const { rows } = matrixState;
     setPair(rows[button.dataset.row].id, rows[button.dataset.column].id);
   });
   matrix.addEventListener("keydown", event => {
@@ -501,7 +519,7 @@ function start({ people, measurements }) {
     const cell = event.target.closest("button[data-row]");
     if (!step || !cell) return;
     event.preventDefault();
-    const rows = ordered();
+    const { rows } = matrixState;
     let row = Number(cell.dataset.row) + step[0];
     let column = Number(cell.dataset.column) + step[1];
     if (row === column) {

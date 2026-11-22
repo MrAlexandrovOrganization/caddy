@@ -63,16 +63,19 @@
 
         <section id="matrix-panel" class="visual-panel" aria-labelledby="matrix-title" hidden>
           <div class="panel-head">
-            <div><h2 id="matrix-title">Все пары</h2><p class="meta">Выбери ячейку для сравнения.</p></div>
-            <label>Порядок<select id="matrix-order"><option value="name">По имени</option><option value="type">По типу</option></select></label>
+            <div><h2 id="matrix-title">Матрица пар</h2><p id="matrix-status" class="meta" aria-live="polite">Выбери ячейку для сравнения.</p></div>
+            <div class="filter-row">
+              <label>Порядок<select id="matrix-order"><option value="name">По имени</option><option value="type">По типу</option></select></label>
+              <label class="check-filter"><input type="checkbox" id="matrix-measured-only" aria-controls="matrix"> Есть общие проценты</label>
+            </div>
           </div>
-          <div class="matrix-scroll" tabindex="0" aria-label="Прокручиваемая матрица пар">
+          <div id="matrix-scroll" class="matrix-scroll" tabindex="0" aria-label="Прокручиваемая матрица пар">
             <table id="matrix" aria-labelledby="matrix-title"></table>
           </div>
-          <div class="panel-footer">
+          <div id="matrix-footer" class="panel-footer">
             <span>Сходство</span><div id="matrix-key" class="matrix-key" aria-label="Шкала сходства"></div>
             <span class="matrix-indicator">Не все шкалы по процентам</span>
-            <span>— Нет результата теста</span>
+            <span id="matrix-unrated">— Нет результата теста</span>
           </div>
         </section>
 

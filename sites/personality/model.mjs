@@ -37,6 +37,7 @@ const pairKey = (first, second) => first < second ? `${first}/${second}` : `${se
 export function readSnapshot(snapshot) {
   const people = readProfiles(Array.isArray(snapshot) ? snapshot : snapshot?.profiles);
   const measurements = new Map();
+  const measuredIds = new Set();
   for (const [first, second, score, mask] of snapshot.measurements ?? []) {
     const key = pairKey(first, second);
     if (!Number.isInteger(first) || !Number.isInteger(second) || first < 0 ||
@@ -47,8 +48,10 @@ export function readSnapshot(snapshot) {
       throw new Error("Некорректные данные сравнения.");
     }
     measurements.set(key, { score, mask });
+    measuredIds.add(first);
+    measuredIds.add(second);
   }
-  return { people, measurements };
+  return { people, measurements, measuredIds };
 }
 
 export function buildSnapshot(rows) {
