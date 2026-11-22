@@ -76,7 +76,7 @@ config-check:
 	$(DOCKER) run --rm --network none --tmpfs /var/lib/headscale -v "$(CURDIR)/headscale/config.example.yaml:/etc/headscale/config.yaml:ro" headscale/headscale:$(HEADSCALE_VERSION) configtest
 
 # Keep the mounted directory stable across Git's atomic file replacement.
-.PHONY: sync-runtime-config sync-personality-site personality-check
+.PHONY: sync-runtime-config sync-personality-site personality-check personality-sync
 sync-runtime-config: sync-personality-site
 	mkdir -p .runtime/caddy
 	cp Caddyfile .runtime/caddy/Caddyfile.next
@@ -94,7 +94,17 @@ sync-personality-site:
 
 personality-check:
 	node --check sites/personality/app.mjs
-	node --test sites/personality/model.test.mjs
+	node --test sites/personality/model.test.mjs scripts/sync-personality.test.mjs
+
+personality-sync:
+	@flock -n -E 0 "$(CURDIR)/.runtime/personality-sync/sync.lock" \
+		$(DOCKER) run --rm --pull=missing --read-only --cap-drop=ALL \
+		--security-opt=no-new-privileges --memory=128m --user "$$(id -u):$$(id -g)" \
+		--mount "type=bind,src=$(CURDIR)/scripts/sync-personality.mjs,dst=/app/scripts/sync-personality.mjs,readonly" \
+		--mount "type=bind,src=$(CURDIR)/sites/personality/model.mjs,dst=/app/sites/personality/model.mjs,readonly" \
+		--mount "type=bind,src=$(CURDIR)/.runtime/personality-sync,dst=/config,readonly" \
+		--mount "type=bind,src=$(CURDIR)/.runtime/caddy/personality,dst=/snapshot" \
+		$(PERSONALITY_SYNC_IMAGE) node /app/scripts/sync-personality.mjs /config /snapshot/profiles.json
 
 .PHONY: compose
 compose:

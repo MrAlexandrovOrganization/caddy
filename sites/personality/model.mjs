@@ -86,7 +86,7 @@ export function buildSnapshot(rows) {
   const people = readProfiles(profiles);
   const percentages = rows.map(([, code, values]) => {
     if (!Array.isArray(values) || values.length !== dimensions.length ||
-        values.some(value => value !== null && (code === null || !Number.isInteger(value) || value < 50 || value > 100))) {
+        values.some(value => value !== null && (code === null || !Number.isFinite(value) || value < 50 || value > 100))) {
       throw new Error("Ожидаются проценты ведущих букв или пустые значения по пяти шкалам.");
     }
     return values.map((value, position) => {

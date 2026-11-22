@@ -75,7 +75,7 @@ Git игнорирует `caddy.env`, `.env*` и `headscale/config.yaml`. Сер
 `make personality-check` и полного `make check` требуется Node.js 20+.
 
 Для обновления снимка передайте в `buildSnapshot` из `sites/personality/model.mjs`
-строки `[имя, тип, [E/I, N/S, T/F, J/P, A/T]]`. Каждая шкала содержит целый
+строки `[имя, тип, [E/I, N/S, T/F, J/P, A/T]]`. Каждая шкала содержит
 процент ведущей буквы от 50 до 100 или `null`. Сериализуйте результат в
 игнорируемый `.runtime/caddy/personality/profiles.json` на машине публикации.
 У участника без результата тип и все значения шкал равны `null`. Он виден
@@ -90,6 +90,25 @@ Git игнорирует `caddy.env`, `.env*` и `headscale/config.yaml`. Сер
 страница и снимок профилей доступны всем по HTTPS. Поддерживаются только
 `GET` и `HEAD`. Запуск и перезагрузка Caddy доставляют статические файлы из
 checkout, сохраняя снимок данных.
+
+Серверный синхронизатор раз в минуту читает строки Google Таблицы, начиная с
+`A6:G`, и пересчитывает снимок тем же модулем, что использует сайт. В столбце B
+нужен тип или пустая ячейка для участника без результата, в C:G — числовые
+проценты ведущей буквы. При ошибке чтения или проверки продолжает работать
+последний успешно рассчитанный снимок.
+
+Для включения синхронизации активируйте Sheets API в проекте Google Cloud и
+дайте выделенному сервисному аккаунту доступ «Читатель» к нужной таблице.
+На машине публикации создайте `.runtime/personality-sync` с правами `700`
+и поместите туда JSON-ключ `service-account.json` и `config.json` с правами
+`600`. В `config.json` задайте `spreadsheetId` и `sheetName`. Выполните
+`make personality-sync` от пользователя, владеющего каталогом снимка и
+имеющего доступ к Docker. Для запуска раз в минуту установите
+`systemd/personality-sync@.service` и `systemd/personality-sync@.timer` в
+`/etc/systemd/system`, затем включите `personality-sync@<user>.timer` командой
+`systemctl enable --now`. Юнит использует серверный checkout в
+`/home/<user>/projects/infra/network/caddy`. Журнал доступен через
+`journalctl -u personality-sync@<user>.service`.
 
 Обновление профилей заменяет только `profiles.json`. Для отключения сайта
 переместите `viewer.caddy` за пределы `personality.d`, затем выполните
