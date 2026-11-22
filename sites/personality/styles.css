@@ -31,6 +31,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, [tabindex="0"]:
 
 .masthead { border-bottom: 1px solid var(--line); background: var(--surface); }
 .masthead-inner, main { max-width: 1440px; margin-inline: auto; padding-inline: clamp(1rem, 4vw, 3rem); }
+.table-view :is(.masthead-inner, main) { max-width: none; }
 .masthead-inner { min-height: 3.75rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .brand { display: inline-flex; align-items: center; gap: .7rem; font-size: 1rem; font-weight: 700; }
 .brand-mark { width: .85rem; height: .85rem; border: .24rem solid var(--primary); border-radius: 4px; transform: rotate(45deg); }
@@ -188,14 +189,30 @@ select {
 .axes .match dd { color: #11755c; font-weight: 680; }
 .focus-button { width: 100%; background: var(--primary-light); color: var(--primary); }
 
-.matrix-scroll { overflow: auto; max-height: 35rem; border-block: 1px solid var(--line); padding: .25rem .65rem .55rem; }
-#matrix { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 2px; min-width: 49rem; }
+.matrix-selection { display: none; }
+.matrix-scroll {
+  --matrix-label-width: 6rem;
+  --matrix-column-width: 2.95rem;
+  overflow: auto;
+  max-block-size: max(17rem, 68dvh);
+  border-block: 1px solid var(--line);
+  padding-block: .2rem .4rem;
+  overscroll-behavior-inline: contain;
+  scroll-padding-inline-start: var(--matrix-label-width);
+  scroll-padding-block-start: 5rem;
+}
+#matrix {
+  width: 100%;
+  min-width: calc(var(--matrix-label-width) + var(--matrix-columns, 1) * var(--matrix-column-width) + 2px);
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 2px;
+}
 #matrix th { font-size: .79rem; font-weight: 570; }
-#matrix thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); vertical-align: bottom; }
+#matrix thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); box-shadow: 0 1px var(--line); vertical-align: bottom; }
 #matrix thead th span { display: inline-block; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; padding-block: .15rem; }
-#matrix tr > :first-child { width: 5.85rem; position: sticky; left: 0; z-index: 1; background: var(--surface); text-align: start; }
-#matrix thead tr > :first-child { z-index: 3; }
-#matrix tbody th { padding-left: .25rem; }
+#matrix tr > :first-child { width: var(--matrix-label-width); position: sticky; left: 0; z-index: 1; padding-inline: .4rem; background: var(--surface); box-shadow: 2px 0 var(--line); text-align: start; }
+#matrix thead tr > :first-child { z-index: 3; box-shadow: 2px 1px var(--line); }
 #matrix [data-selected="true"] { color: var(--primary); text-decoration: underline; font-weight: 750; }
 #matrix td { padding: 0; text-align: center; color: var(--muted); font-size: .78rem; }
 .matrix-cell, .matrix-key span { background: var(--score-fill); }
@@ -227,6 +244,31 @@ select {
 [data-correlation="negative"] { --correlation-color: #de873f; }
 [data-correlation="positive"] { --correlation-color: #4e8ce6; }
 [data-correlation] { --score-fill: color-mix(in srgb, var(--correlation-color) var(--correlation-strength), #f6f4fa); }
+.pair-preview {
+  width: min(27rem, calc(100% - 1.5rem));
+  max-block-size: calc(100dvh - 1.5rem);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 1.05rem;
+  padding: .9rem 1rem;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1rem 3rem #211b3540;
+}
+.pair-preview::backdrop { background: #211b3566; }
+body:has(.pair-preview[open]) { overflow: hidden; }
+.pair-preview-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+.pair-preview-close {
+  min-block-size: 2.75rem;
+  border: 0;
+  border-radius: .6rem;
+  background: var(--primary-light);
+  color: var(--primary);
+  padding-inline: .75rem;
+  font-size: .875rem;
+  font-weight: 650;
+}
+.pair-preview .pair-details { margin-bottom: .35rem; }
 .site-footer { margin-top: 1rem; font-size: .875rem; color: var(--muted); }
 .site-footer summary { cursor: pointer; font-weight: 650; }
 .site-footer p { margin-top: .55rem; max-width: 68ch; }
@@ -235,10 +277,38 @@ select {
   .workspace-grid { grid-template-columns: minmax(0, 1fr); }
   .comparison { position: static; }
   .graph-stage { height: clamp(24rem, 65vh, 36rem); }
+  .matrix-scroll { --matrix-column-width: 2.875rem; max-block-size: max(16rem, 60dvh); }
+  .matrix-cell { min-block-size: 2.25rem; font-size: .82rem; }
+  .matrix-selection {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .65rem;
+    min-block-size: 2.75rem;
+    margin: 0 .75rem .65rem;
+    width: calc(100% - 1.5rem);
+    border: 1px solid var(--line);
+    border-radius: .65rem;
+    padding: .35rem .55rem;
+    background: var(--primary-light);
+    color: var(--ink);
+    text-align: start;
+    font-size: .875rem;
+  }
+  .matrix-selection-values { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .45rem; }
+  .matrix-selection > span:last-child, #matrix-selection-value { color: var(--primary); font-weight: 650; }
 }
 @media (pointer: coarse) {
   select { font-size: 1rem; }
   .view-switch button, .zoom-controls button { min-height: 2.75rem; }
+  .matrix-cell { min-block-size: 2.75rem; }
+}
+@media (max-width: 600px) {
+  .masthead-inner, main { padding-inline: .75rem; }
+  main { padding-block-start: 1.4rem; }
+  .page-heading { margin-bottom: 1rem; }
+  .view-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .view-switch button { padding-inline: .25rem; font-size: .82rem; line-height: 1.2; }
 }
 @media (max-width: 410px) {
   .panel-head, .panel-footer { padding-inline: .75rem; }

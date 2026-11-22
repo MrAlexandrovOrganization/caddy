@@ -70,6 +70,10 @@
               <label id="matrix-measured-filter" class="check-filter"><input type="checkbox" id="matrix-measured-only" aria-controls="matrix"> Есть общие проценты</label>
             </div>
           </div>
+          <button type="button" id="matrix-selection" class="matrix-selection" aria-haspopup="dialog">
+            <span class="matrix-selection-values"><strong id="matrix-selection-name"></strong><span id="matrix-selection-value"></span></span>
+            <span>Подробнее</span>
+          </button>
           <div id="matrix-scroll" class="matrix-scroll" tabindex="0" aria-label="Прокручиваемая матрица пар">
             <table id="matrix" aria-labelledby="matrix-title"></table>
           </div>
@@ -101,5 +105,12 @@
       </details>
     </div>
   </main>
+  <dialog id="pair-preview" class="pair-preview" aria-labelledby="pair-preview-title">
+    <div class="pair-preview-head">
+      <h2 id="pair-preview-title">Сравнение пары</h2>
+      <button type="button" id="pair-preview-close" class="pair-preview-close" autofocus>Закрыть</button>
+    </div>
+    <div id="pair-preview-details" class="pair-details"></div>
+  </dialog>
 </body>
 </html>

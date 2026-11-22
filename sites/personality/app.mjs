@@ -156,7 +156,12 @@ function start({ people, measurements, measuredIds, correlationIds, correlationC
     const { score, matches, measured, axes, correlation } = compare(a, b, measurements);
     const name = node("p", `${a.name} × ${b.name}`, "pair-name");
     const codes = node("p", `${a.code ?? "—"} / ${b.code ?? "—"}`, "pair-codes");
-    if (state.view === "correlation") {
+    const correlationView = state.view === "correlation";
+    const value = correlationView ? correlation : score;
+    element("matrix-selection-name").textContent = name.textContent;
+    element("matrix-selection-value").textContent = value === null ? "—"
+      : correlationView ? `r = ${correlationFormat.format(value)}` : formatScore(value);
+    if (correlationView) {
       const details = element("pair-details");
       if (correlation === null) {
         details.replaceChildren(name, codes, node("p", "Для расчёта нужны пять процентов у каждого и разброс значений в обоих профилях.", "meta"));
@@ -394,6 +399,7 @@ function start({ people, measurements, measuredIds, correlationIds, correlationC
         : "Нет пар с общими процентами.";
     }
     element("matrix-scroll").hidden = rows.length === 0;
+    element("matrix-selection").hidden = rows.length === 0;
     element("matrix-footer").hidden = rows.length === 0;
     element("matrix-unrated").textContent = filtered ? "— Нет общих процентов" : `— ${noResult}`;
     const head = node("thead");
@@ -457,7 +463,7 @@ function start({ people, measurements, measuredIds, correlationIds, correlationC
       }
       body.append(row);
     }
-    matrix.style.minWidth = `${6 + rows.length * 3}rem`;
+    matrix.style.setProperty("--matrix-columns", rows.length);
     matrix.replaceChildren(head, body);
     const key = correlationView
       ? [-1, -.5, 0, .5, 1].map(value => {
@@ -508,6 +514,7 @@ function start({ people, measurements, measuredIds, correlationIds, correlationC
 
   function setView(view) {
     state.view = view;
+    document.body.classList.toggle("table-view", view !== "graph");
     graph.hidden = view !== "graph";
     matrixPanel.hidden = view === "graph";
     element("similarity-method").hidden = view === "correlation";
@@ -547,6 +554,13 @@ function start({ people, measurements, measuredIds, correlationIds, correlationC
     setPair(state.second, state.first);
     setView("graph");
   });
+  const pairPreview = element("pair-preview");
+  element("matrix-selection").addEventListener("click", () => {
+    const details = element("pair-details");
+    element("pair-preview-details").replaceChildren(...Array.from(details.children, child => child.cloneNode(true)));
+    pairPreview.showModal();
+  });
+  element("pair-preview-close").addEventListener("click", () => pairPreview.close());
   graphNodes.addEventListener("click", event => {
     const button = event.target.closest("button[data-person]");
     if (button) setPair(state.first, Number(button.dataset.person));
