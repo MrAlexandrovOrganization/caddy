@@ -514,7 +514,6 @@ function start({ people, measurements, measuredIds, correlationIds, correlationC
 
   function setView(view) {
     state.view = view;
-    document.body.classList.toggle("table-view", view !== "graph");
     graph.hidden = view !== "graph";
     matrixPanel.hidden = view === "graph";
     element("similarity-method").hidden = view === "correlation";
