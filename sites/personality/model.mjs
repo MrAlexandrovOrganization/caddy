@@ -11,6 +11,7 @@ export const groups = [
   { id: "analysts", label: "Аналитики" },
   { id: "sentinels", label: "Стражи" },
   { id: "explorers", label: "Искатели" },
+  { id: "unreported", label: "Без результата теста" },
 ];
 
 export function readProfiles(records) {
@@ -20,11 +21,11 @@ export function readProfiles(records) {
     if (!Array.isArray(record) || record.length !== 2) throw new Error("Некорректная строка профиля.");
     const [name, code] = record;
     if (typeof name !== "string" || !name.trim() || names.has(name.trim()) ||
-        typeof code !== "string" || !/^[EI][NS][TF][JP]-[AT]$/.test(code)) {
+        (code !== null && (typeof code !== "string" || !/^[EI][NS][TF][JP]-[AT]$/.test(code)))) {
       throw new Error("В списке есть некорректный или повторяющийся профиль.");
     }
     names.add(name.trim());
-    const group = code[1] === "N"
+    const group = code === null ? "unreported" : code[1] === "N"
       ? (code[2] === "F" ? "diplomats" : "analysts")
       : (code[3] === "J" ? "sentinels" : "explorers");
     return { id, name: name.trim(), code, group };
@@ -39,7 +40,8 @@ export function readSnapshot(snapshot) {
   for (const [first, second, score, mask] of snapshot.measurements ?? []) {
     const key = pairKey(first, second);
     if (!Number.isInteger(first) || !Number.isInteger(second) || first < 0 ||
-        first >= second || second >= people.length || measurements.has(key) ||
+        first >= second || second >= people.length || !people[first].code || !people[second].code ||
+        measurements.has(key) ||
         !Number.isFinite(score) || score < 0 || score > 100 ||
         !Number.isInteger(mask) || mask < 1 || mask >= 2 ** dimensions.length) {
       throw new Error("Некорректные данные сравнения.");
@@ -52,16 +54,17 @@ export function readSnapshot(snapshot) {
 export function buildSnapshot(rows) {
   const profiles = rows.map(([name, code]) => [name, code]);
   const people = readProfiles(profiles);
-  const percentages = rows.map(([, , values]) => {
+  const percentages = rows.map(([, code, values]) => {
     if (!Array.isArray(values) || values.length !== dimensions.length ||
-        values.some(value => value !== null && (!Number.isInteger(value) || value < 50 || value > 100))) {
+        values.some(value => value !== null && (code === null || !Number.isInteger(value) || value < 50 || value > 100))) {
       throw new Error("Ожидаются проценты ведущих букв или пустые значения по пяти шкалам.");
     }
     return values;
   });
   const measurements = [];
-  for (const first of people) {
-    for (const second of people.slice(first.id + 1)) {
+  const reported = people.filter(person => person.code !== null);
+  for (const [i, first] of reported.entries()) {
+    for (const second of reported.slice(i + 1)) {
       let distance = 0;
       let mask = 0;
       for (const [position, { index }] of dimensions.entries()) {
@@ -82,6 +85,7 @@ export function buildSnapshot(rows) {
 }
 
 export function compare(first, second, measurements) {
+  if (first.code === null || second.code === null) return { axes: [], matches: null, measured: 0, score: null };
   const data = measurements.get(pairKey(first.id, second.id));
   const axes = dimensions.map(({ index, label }, position) => ({
     label,
@@ -98,16 +102,18 @@ export function profileClusters(people) {
   const clusters = new Map();
   for (const person of people) {
     const { code } = person;
-    if (!clusters.has(code)) clusters.set(code, { id: person.id, code, group: person.group, members: [] });
-    clusters.get(code).members.push(person);
+    const key = code ?? person.id;
+    if (!clusters.has(key)) clusters.set(key, { id: person.id, code, group: person.group, members: [] });
+    clusters.get(key).members.push(person);
   }
   return [...clusters.values()];
 }
 
 export function connections(clusters, measurements, minimum, focusId = null, measuredOnly = false) {
   const edges = [];
-  for (const [index, from] of clusters.entries()) {
-    for (const to of clusters.slice(index + 1)) {
+  const reported = clusters.filter(cluster => cluster.code !== null);
+  for (const [index, from] of reported.entries()) {
+    for (const to of reported.slice(index + 1)) {
       let best = null;
       for (const first of from.members) {
         for (const second of to.members) {

@@ -9,6 +9,9 @@ const pluralRules = new Intl.PluralRules("ru");
 const numberFormat = new Intl.NumberFormat("ru", { maximumFractionDigits: 1 });
 const formatScore = score => `${numberFormat.format(score)}%`;
 const participantForms = { one: "участник", few: "участника", many: "участников" };
+const pairForms = { one: "пара", few: "пары", many: "пар" };
+const noResult = "Нет результата теста";
+const personLabel = person => `${person.name} · ${person.code ?? noResult}`;
 
 function node(tag, text = "", className = "") {
   const result = document.createElement(tag);
@@ -58,27 +61,38 @@ function layoutTeam(views) {
     const members = [...views.values()]
       .filter(view => view.cluster.group === group.id)
       .map(({ cluster, rx, ry }) => ({ id: cluster.id, rx, ry }));
-    return packRows(members, Math.ceil(Math.sqrt(members.length)), 24, 26);
+    const columns = group.id === "unreported" ? members.length : Math.ceil(Math.sqrt(members.length));
+    return packRows(members, columns, 24, 26);
   });
   const columnWidths = [Math.max(blocks[0].width, blocks[2].width), Math.max(blocks[1].width, blocks[3].width)];
   const rowHeights = [Math.max(blocks[0].height, blocks[1].height), Math.max(blocks[2].height, blocks[3].height)];
-  return new Map(blocks.flatMap((block, index) => {
+  const positions = blocks.slice(0, 4).flatMap((block, index) => {
     const column = index % 2;
     const row = Math.floor(index / 2);
     const left = (columnWidths[column] - block.width) / 2 + (column ? columnWidths[0] + gap : 0);
     const top = (rowHeights[row] - block.height) / 2 + (row ? rowHeights[0] + gap : 0);
     return block.positions.map(([id, point]) => [id, { x: left + point.x, y: top + point.y }]);
-  }));
+  });
+  const unreported = blocks[4];
+  const left = (columnWidths[0] + columnWidths[1] + gap - unreported.width) / 2;
+  const top = rowHeights[0] + rowHeights[1] + gap * 2;
+  return new Map([...positions, ...unreported.positions.map(([id, point]) => [id, {
+    x: left + point.x, y: top + point.y,
+  }])]);
 }
 
 function start({ people, measurements }) {
   const byId = new Map(people.map(person => [person.id, person]));
   const alphabetical = [...people].sort((a, b) => a.name.localeCompare(b.name, "ru"));
-  const byType = [...alphabetical].sort((a, b) => a.code.localeCompare(b.code));
-  const [closest] = people.slice(1).map(person => ({ id: person.id, ...compare(people[0], person, measurements) }))
-    .sort((a, b) => b.measured - a.measured || b.score - a.score);
+  const reported = alphabetical.filter(person => person.code !== null);
+  const byType = [...reported].sort((a, b) => a.code.localeCompare(b.code))
+    .concat(alphabetical.filter(person => person.code === null));
+  const initial = people.find(person => person.code !== null) ?? people[0];
+  const [closest] = people.filter(person => person !== initial)
+    .map(person => ({ id: person.id, ...compare(initial, person, measurements) }))
+    .sort((a, b) => b.measured - a.measured || (b.score ?? -1) - (a.score ?? -1));
   const state = {
-    first: people[0].id,
+    first: initial.id,
     second: closest.id,
     view: "graph",
     scope: "team",
@@ -104,7 +118,7 @@ function start({ people, measurements }) {
 
   for (const person of alphabetical) {
     for (const select of [first, second]) {
-      const option = node("option", `${person.name} · ${person.code}`);
+      const option = node("option", personLabel(person));
       option.value = person.id;
       select.append(option);
     }
@@ -118,9 +132,10 @@ function start({ people, measurements }) {
   }
   element("coverage").textContent = [
     countLabel(people.length, participantForms),
-    countLabel(people.length * (people.length - 1) / 2, { one: "пара", few: "пары", many: "пар" }),
-    `${countLabel(measurements.size, { one: "пара", few: "пары", many: "пар" })} с общими процентами`,
-  ].join(" · ");
+    reported.length < people.length ? `${reported.length} с результатом теста` : "",
+    `${countLabel(reported.length * (reported.length - 1) / 2, pairForms)} с оценкой`,
+    `${countLabel(measurements.size, pairForms)} с общими процентами`,
+  ].filter(Boolean).join(" · ");
   element("scope").value = state.scope;
 
   function renderPair() {
@@ -133,7 +148,12 @@ function start({ people, measurements }) {
 
     const { score, matches, measured, axes } = compare(a, b, measurements);
     const name = node("p", `${a.name} × ${b.name}`, "pair-name");
-    const codes = node("p", `${a.code} / ${b.code}`, "pair-codes");
+    const codes = node("p", `${a.code ?? "—"} / ${b.code ?? "—"}`, "pair-codes");
+    if (score === null) {
+      const missing = [a, b].filter(person => person.code === null).map(person => person.name).join(", ");
+      element("pair-details").replaceChildren(name, codes, node("p", `Без результата теста — ${missing}`, "meta"));
+      return;
+    }
     const tally = node("p", `${formatScore(score)} `, "pair-score");
     tally.append(node("small", "сходство профилей"));
     const basis = node("p", measured ? `По процентам — ${measured} из ${axisCount} шкал` : "Оценка по буквам типа", "meta");
@@ -189,7 +209,7 @@ function start({ people, measurements }) {
       button.type = "button";
       button.dataset.group = person.group;
       button.dataset.person = person.id;
-      button.title = `${person.name} · ${person.code}`;
+      button.title = personLabel(person);
       button.setAttribute("aria-label", button.title);
       return [person.id, button];
     }));
@@ -362,14 +382,17 @@ function start({ people, measurements }) {
         const cell = node("td", i === j ? "—" : "");
         if (i !== j) {
           const { score, measured } = compare(person, counterpart, measurements);
-          const button = node("button", formatScore(score), "matrix-cell");
+          const available = score !== null;
+          const button = node("button", available ? formatScore(score) : "—", "matrix-cell");
           button.type = "button";
           button.tabIndex = -1;
           button.dataset.row = i;
           button.dataset.column = j;
-          button.dataset.score = Math.floor(score / 20);
+          if (available) button.dataset.score = Math.floor(score / 20);
+          button.toggleAttribute("data-unrated", !available);
           button.toggleAttribute("data-missing-percentages", measured < axisCount);
-          button.title = `${person.name} × ${counterpart.name} · ${formatScore(score)} · по процентам ${measured} из ${axisCount} шкал`;
+          const details = available ? `${formatScore(score)} · по процентам ${measured} из ${axisCount} шкал` : noResult;
+          button.title = `${person.name} × ${counterpart.name} · ${details}`;
           button.setAttribute("aria-label", button.title);
           cells.set(`${person.id}/${counterpart.id}`, button);
           cell.append(button);

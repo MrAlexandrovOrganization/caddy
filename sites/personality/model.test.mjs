@@ -56,3 +56,21 @@ test("missing, duplicate and malformed rows and measurements fail validation", (
   assert.throws(() => readSnapshot({ profiles: legacy, measurements: [[0, 1, 90, 32]] }));
   assert.throws(() => buildSnapshot([["А", "ENFJ-A", [49, 50, 50, 50, 50]], ["Б", "ENFJ-T", [60, 60, 60, 60, 60]]]));
 });
+
+test("participants without results stay separate and never create an estimated score or edge", () => {
+  const empty = [null, null, null, null, null];
+  const full = [60, 60, 60, 60, 60];
+  const rows = [["А", null, empty], ["Б", "ENFJ-A", full], ["В", null, empty], ["Г", "ISTP-T", full]];
+  const snapshot = buildSnapshot(rows);
+  assert.equal(snapshot.measurements.length, 1);
+  const { people, measurements } = readSnapshot(snapshot);
+  assert.equal(people[0].group, "unreported");
+  assert.equal(compare(people[0], people[1], measurements).score, null);
+  assert.equal(compare(people[0], people[2], measurements).score, null);
+  const clusters = profileClusters(people);
+  assert.deepEqual(clusters.map(cluster => cluster.members.map(person => person.id)), [[0], [1], [2], [3]]);
+  assert.deepEqual(connections(clusters, measurements, 0).map(edge => [edge.first, edge.second]), [[1, 3]]);
+  assert.deepEqual(connections(clusters, measurements, 0, 0), []);
+  assert.throws(() => readSnapshot({ ...snapshot, measurements: [[0, 1, 91, 31]] }));
+  assert.throws(() => buildSnapshot([["А", null, full], rows[1]]));
+});

@@ -107,6 +107,7 @@ select {
 [data-group="analysts"] { --group-color: var(--analysts); }
 [data-group="sentinels"] { --group-color: var(--sentinels); }
 [data-group="explorers"] { --group-color: var(--explorers); }
+[data-group="unreported"] { --group-color: var(--muted); }
 .graph-node {
   display: grid;
   place-items: center;
@@ -126,6 +127,7 @@ select {
   pointer-events: auto;
 }
 .graph-node:hover, .graph-node:focus-visible { z-index: 2; }
+.graph-node[data-group="unreported"] { border-style: dashed; }
 .cluster-label {
   pointer-events: none;
   position: absolute;
@@ -212,6 +214,7 @@ select {
 }
 .matrix-cell[data-missing-percentages]::after, .matrix-indicator::before { content: ""; width: .27rem; height: .27rem; border-radius: 50%; background: var(--primary); }
 .matrix-cell[data-missing-percentages]::after { position: absolute; top: .14rem; right: .14rem; }
+.matrix-cell[data-unrated] { --score-fill: #f5f4f8; color: var(--muted); }
 .matrix-cell:hover, .matrix-cell[aria-current="true"] { box-shadow: inset 0 0 0 2px var(--primary); }
 .matrix-key { display: flex; gap: .2rem; }
 .matrix-key span { min-width: 2.3rem; border-radius: .22rem; text-align: center; color: var(--ink); }
