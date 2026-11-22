@@ -368,7 +368,7 @@ function start({ people, measurements }) {
           button.dataset.row = i;
           button.dataset.column = j;
           button.dataset.score = Math.floor(score / 20);
-          button.dataset.measured = measured;
+          button.toggleAttribute("data-missing-percentages", measured < axisCount);
           button.title = `${person.name} × ${counterpart.name} · ${formatScore(score)} · по процентам ${measured} из ${axisCount} шкал`;
           button.setAttribute("aria-label", button.title);
           cells.set(`${person.id}/${counterpart.id}`, button);

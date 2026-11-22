@@ -210,8 +210,8 @@ select {
   font-size: .78rem;
   font-variant-numeric: tabular-nums;
 }
-.matrix-cell:not([data-measured="0"])::after, .matrix-indicator::before { content: ""; width: .27rem; height: .27rem; border-radius: 50%; background: var(--primary); }
-.matrix-cell:not([data-measured="0"])::after { position: absolute; top: .14rem; right: .14rem; }
+.matrix-cell[data-missing-percentages]::after, .matrix-indicator::before { content: ""; width: .27rem; height: .27rem; border-radius: 50%; background: var(--primary); }
+.matrix-cell[data-missing-percentages]::after { position: absolute; top: .14rem; right: .14rem; }
 .matrix-cell:hover, .matrix-cell[aria-current="true"] { box-shadow: inset 0 0 0 2px var(--primary); }
 .matrix-key { display: flex; gap: .2rem; }
 .matrix-key span { min-width: 2.3rem; border-radius: .22rem; text-align: center; color: var(--ink); }
