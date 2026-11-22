@@ -41,7 +41,7 @@ main { padding-block: clamp(1.8rem, 4.5vw, 3.75rem) 2rem; }
 .load-error { background: #fff2ef; color: #962c17; padding: 1rem; border-radius: .8rem; }
 
 .workspace-toolbar { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; justify-content: space-between; margin-bottom: .85rem; }
-.view-switch { display: flex; gap: .25rem; padding: .25rem; background: #eae6f5; border-radius: .85rem; }
+.view-switch { display: flex; flex-wrap: wrap; gap: .25rem; padding: .25rem; background: #eae6f5; border-radius: .85rem; }
 .view-switch button, .zoom-controls button, .focus-button {
   border: 1px solid transparent;
   border-radius: .65rem;
@@ -224,6 +224,9 @@ select {
 [data-score="3"] { --score-fill: #cdbaf5; }
 [data-score="4"] { --score-fill: #b59cec; }
 [data-score="5"] { --score-fill: #9c7de5; }
+[data-correlation="negative"] { --correlation-color: #de873f; }
+[data-correlation="positive"] { --correlation-color: #4e8ce6; }
+[data-correlation] { --score-fill: color-mix(in srgb, var(--correlation-color) var(--correlation-strength), #f6f4fa); }
 .site-footer { margin-top: 1rem; font-size: .875rem; color: var(--muted); }
 .site-footer summary { cursor: pointer; font-weight: 650; }
 .site-footer p { margin-top: .55rem; max-width: 68ch; }

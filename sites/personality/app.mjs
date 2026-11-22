@@ -8,6 +8,7 @@ const axisCount = dimensions.length;
 const pluralRules = new Intl.PluralRules("ru");
 const numberFormat = new Intl.NumberFormat("ru", { maximumFractionDigits: 1 });
 const formatScore = score => `${numberFormat.format(score)}%`;
+const correlationFormat = new Intl.NumberFormat("ru", { maximumFractionDigits: 2, signDisplay: "exceptZero" });
 const participantForms = { one: "участник", few: "участника", many: "участников" };
 const pairForms = { one: "пара", few: "пары", many: "пар" };
 const noResult = "Нет результата теста";
@@ -18,6 +19,11 @@ function node(tag, text = "", className = "") {
   result.textContent = text;
   if (className) result.className = className;
   return result;
+}
+
+function paintCorrelation(element, coefficient) {
+  element.dataset.correlation = coefficient < 0 ? "negative" : "positive";
+  element.style.setProperty("--correlation-strength", `${Math.abs(coefficient) * 42}%`);
 }
 
 function countLabel(count, forms) {
@@ -81,7 +87,7 @@ function layoutTeam(views) {
   }])]);
 }
 
-function start({ people, measurements, measuredIds }) {
+function start({ people, measurements, measuredIds, correlationIds, correlationCount }) {
   const byId = new Map(people.map(person => [person.id, person]));
   const alphabetical = [...people].sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const reported = alphabetical.filter(person => person.code !== null);
@@ -147,9 +153,20 @@ function start({ people, measurements, measuredIds }) {
     for (const option of first.options) option.disabled = Number(option.value) === b.id;
     for (const option of second.options) option.disabled = Number(option.value) === a.id;
 
-    const { score, matches, measured, axes } = compare(a, b, measurements);
+    const { score, matches, measured, axes, correlation } = compare(a, b, measurements);
     const name = node("p", `${a.name} × ${b.name}`, "pair-name");
     const codes = node("p", `${a.code ?? "—"} / ${b.code ?? "—"}`, "pair-codes");
+    if (state.view === "correlation") {
+      const details = element("pair-details");
+      if (correlation === null) {
+        details.replaceChildren(name, codes, node("p", "Для расчёта нужны пять процентов у каждого и разброс значений в обоих профилях.", "meta"));
+        return;
+      }
+      const tally = node("p", `r = ${correlationFormat.format(correlation)} `, "pair-score");
+      tally.append(node("small", "Пирсон · 5 шкал"));
+      details.replaceChildren(name, codes, tally, node("p", `Сходство профилей — ${formatScore(score)}`, "meta"));
+      return;
+    }
     if (score === null) {
       const missing = [a, b].filter(person => person.code === null).map(person => person.name).join(", ");
       element("pair-details").replaceChildren(name, codes, node("p", `Без результата теста — ${missing}`, "meta"));
@@ -354,12 +371,24 @@ function start({ people, measurements, measuredIds }) {
   }
 
   function buildMatrix() {
+    const correlationView = state.view === "correlation";
     const filtered = matrixMeasuredOnly.checked;
     const ordered = state.order === "type" ? byType : alphabetical;
-    const rows = filtered ? ordered.filter(person => measuredIds.has(person.id)) : ordered;
+    const included = correlationView ? correlationIds : filtered ? measuredIds : null;
+    const rows = included ? ordered.filter(person => included.has(person.id)) : ordered;
     const status = element("matrix-status");
+    element("matrix-title").textContent = correlationView ? "Корреляция профилей" : "Матрица пар";
+    element("matrix-measured-filter").hidden = correlationView;
+    element("matrix-unrated").hidden = correlationView;
+    element("matrix-indicator").hidden = correlationView;
+    element("matrix-scale-label").textContent = correlationView ? "Коэффициент r" : "Сходство";
+    element("matrix-key").setAttribute("aria-label", correlationView ? "Шкала корреляции" : "Шкала сходства");
     status.textContent = "Выбери ячейку для сравнения.";
-    if (filtered) {
+    if (correlationView) {
+      status.textContent = rows.length
+        ? `${countLabel(rows.length, participantForms)} · ${countLabel(correlationCount, pairForms)} · 5 шкал`
+        : "Пока нет пар с рассчитанной корреляцией.";
+    } else if (filtered) {
       status.textContent = rows.length
         ? `${rows.length} из ${people.length} участников`
         : "Нет пар с общими процентами.";
@@ -393,19 +422,32 @@ function start({ people, measurements, measuredIds }) {
       for (const [j, counterpart] of rows.entries()) {
         const cell = node("td", i === j ? "—" : "");
         if (i !== j) {
-          const { score, measured } = compare(person, counterpart, measurements);
-          const available = score !== null && (!filtered || measured > 0);
-          const button = node("button", available ? formatScore(score) : "—", "matrix-cell");
+          const { score, measured, correlation } = compare(person, counterpart, measurements);
+          const button = node("button", "—", "matrix-cell");
           button.type = "button";
           button.tabIndex = -1;
           button.dataset.row = i;
           button.dataset.column = j;
-          if (available) button.dataset.score = Math.floor(score / 20);
-          button.toggleAttribute("data-unrated", !available);
-          button.toggleAttribute("data-missing-percentages", measured < axisCount);
-          const details = available
-            ? `${formatScore(score)} · по процентам ${measured} из ${axisCount} шкал`
-            : score === null ? noResult : "Нет общих процентов";
+          let details;
+          if (correlationView) {
+            button.toggleAttribute("data-unrated", correlation === null);
+            details = "Корреляция недоступна";
+            if (correlation !== null) {
+              button.textContent = correlationFormat.format(correlation);
+              paintCorrelation(button, correlation);
+              details = `r = ${button.textContent}`;
+            }
+          } else {
+            const available = score !== null && (!filtered || measured > 0);
+            button.toggleAttribute("data-unrated", !available);
+            button.toggleAttribute("data-missing-percentages", measured < axisCount);
+            details = score === null ? noResult : "Нет общих процентов";
+            if (available) {
+              button.textContent = formatScore(score);
+              button.dataset.score = Math.floor(score / 20);
+              details = `${button.textContent} · по процентам ${measured} из ${axisCount} шкал`;
+            }
+          }
           button.title = `${person.name} × ${counterpart.name} · ${details}`;
           button.setAttribute("aria-label", button.title);
           cells.set(`${person.id}/${counterpart.id}`, button);
@@ -417,17 +459,24 @@ function start({ people, measurements, measuredIds }) {
     }
     matrix.style.minWidth = `${6 + rows.length * 3}rem`;
     matrix.replaceChildren(head, body);
-    const key = Array.from({ length: axisCount + 1 }, (_, value) => {
-      const swatch = node("span", formatScore(value * 20));
-      swatch.dataset.score = value;
-      return swatch;
-    });
+    const key = correlationView
+      ? [-1, -.5, 0, .5, 1].map(value => {
+        const swatch = node("span", correlationFormat.format(value));
+        paintCorrelation(swatch, value);
+        return swatch;
+      })
+      : Array.from({ length: axisCount + 1 }, (_, value) => {
+        const swatch = node("span", formatScore(value * 20));
+        swatch.dataset.score = value;
+        return swatch;
+      });
     element("matrix-key").replaceChildren(...key);
-    matrixState = { order: state.order, filtered, rows, columns, rowHeaders, cells, selected: null, tabStop: null };
+    matrixState = { view: state.view, order: state.order, filtered, rows, columns, rowHeaders, cells, selected: null, tabStop: null };
   }
 
   function renderMatrix() {
-    if (!matrixState || matrixState.order !== state.order || matrixState.filtered !== matrixMeasuredOnly.checked) buildMatrix();
+    if (!matrixState || matrixState.view !== state.view ||
+        matrixState.order !== state.order || matrixState.filtered !== matrixMeasuredOnly.checked) buildMatrix();
     const { selected, columns, rowHeaders, cells, tabStop } = matrixState;
     if (tabStop) tabStop.tabIndex = -1;
     if (selected) {
@@ -460,8 +509,11 @@ function start({ people, measurements, measuredIds }) {
   function setView(view) {
     state.view = view;
     graph.hidden = view !== "graph";
-    matrixPanel.hidden = view !== "matrix";
+    matrixPanel.hidden = view === "graph";
+    element("similarity-method").hidden = view === "correlation";
+    element("correlation-method").hidden = view !== "correlation";
     for (const button of viewButtons) button.setAttribute("aria-pressed", String(button.dataset.view === view));
+    renderPair();
     if (view === "graph") renderGraph(true);
     else renderMatrix();
   }
@@ -552,7 +604,6 @@ function start({ people, measurements, measuredIds }) {
   });
   new ResizeObserver(() => { if (fitted) fit(); }).observe(stage);
   element("workspace").hidden = false;
-  renderPair();
   setView("graph");
 }
 

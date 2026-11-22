@@ -22,7 +22,7 @@ test("numeric comparisons use a common scale for opposite poles and handle parti
     ["Г", "ENFJ-T", [null, null, null, null, null]],
   ]);
   assert.deepEqual(snapshot.profiles, [["А", "ENFJ-A"], ["Б", "INFJ-T"], ["В", "INFJ-A"], ["Г", "ENFJ-T"]]);
-  assert.deepEqual(snapshot.measurements, [[0, 1, 78.6, 31], [0, 2, 99.6, 1], [1, 2, 80, 1]]);
+  assert.deepEqual(snapshot.measurements.map(pair => pair.slice(0, 4)), [[0, 1, 78.6, 31], [0, 2, 99.6, 1], [1, 2, 80, 1]]);
   const { people: [first, second, third, fourth], measurements, measuredIds } = readSnapshot(snapshot);
   assert.deepEqual([...measuredIds], [0, 1, 2]);
   const forward = compare(first, second, measurements);
@@ -32,6 +32,30 @@ test("numeric comparisons use a common scale for opposite poles and handle parti
   assert.equal(reverse.score, forward.score);
   assert.deepEqual(compare(first, third, measurements).axes.map(axis => axis.measured), [true, false, false, false, false]);
   assert.equal(compare(first, fourth, measurements).score, 80);
+});
+
+test("profile correlations use aligned poles, vary separately from similarity, and require five nonconstant values", () => {
+  const rows = [
+    ["А", "ENTJ-A", [60, 65, 70, 75, 80]],
+    ["Б", "ISFP-T", [80, 75, 70, 65, 60]],
+    ["В", "ENTJ-A", [80, 75, 70, 65, 60]],
+    ["Г", "ENTJ-A", [65, 65, 65, 65, 65]],
+    ["Д", "ENTJ-A", [60, 65, 70, 75, null]],
+    ["Е", "ENTJ-A", [60, 80, 64, 80, 60]],
+  ];
+  const { people: [a, b, c, d, e, f], measurements, correlationIds, correlationCount } = readSnapshot(buildSnapshot(rows));
+  const sameShape = compare(a, b, measurements);
+  assert.deepEqual([sameShape.score, sameShape.correlation], [60, 1]);
+  assert.equal(compare(b, a, measurements).correlation, 1);
+  assert.equal(compare(a, c, measurements).correlation, -1);
+  assert.equal(compare(a, d, measurements).correlation, null);
+  assert.equal(compare(a, e, measurements).correlation, null);
+  assert.equal(compare(a, f, measurements).correlation, 0);
+  assert.deepEqual([...correlationIds], [0, 1, 2, 5]);
+  assert.equal(correlationCount, 6);
+  assert.equal(readSnapshot({ profiles: legacy, measurements: [[0, 1, 90, 31]] }).correlationCount, 0);
+  assert.throws(() => readSnapshot({ profiles: legacy, measurements: [[0, 1, 90, 1, .6]] }));
+  assert.throws(() => readSnapshot({ profiles: legacy, measurements: [[0, 1, 90, 31, 1.01]] }));
 });
 
 test("clusters keep identical types together and choose the best-evidenced pair", () => {

@@ -1,10 +1,11 @@
 export const dimensions = [
-  { index: 0, label: "Энергия" },
-  { index: 1, label: "Разум" },
-  { index: 2, label: "Природа" },
-  { index: 3, label: "Тактика" },
-  { index: 5, label: "Идентичность (A/T)" },
+  { index: 0, label: "Энергия", pole: "E" },
+  { index: 1, label: "Разум", pole: "N" },
+  { index: 2, label: "Природа", pole: "T" },
+  { index: 3, label: "Тактика", pole: "J" },
+  { index: 5, label: "Идентичность (A/T)", pole: "A" },
 ];
+const fullMask = 2 ** dimensions.length - 1;
 
 export const groups = [
   { id: "diplomats", label: "Дипломаты" },
@@ -38,20 +39,46 @@ export function readSnapshot(snapshot) {
   const people = readProfiles(Array.isArray(snapshot) ? snapshot : snapshot?.profiles);
   const measurements = new Map();
   const measuredIds = new Set();
-  for (const [first, second, score, mask] of snapshot.measurements ?? []) {
+  const correlationIds = new Set();
+  let correlationCount = 0;
+  for (const [first, second, score, mask, correlation = null] of snapshot.measurements ?? []) {
     const key = pairKey(first, second);
     if (!Number.isInteger(first) || !Number.isInteger(second) || first < 0 ||
         first >= second || second >= people.length || !people[first].code || !people[second].code ||
         measurements.has(key) ||
         !Number.isFinite(score) || score < 0 || score > 100 ||
-        !Number.isInteger(mask) || mask < 1 || mask >= 2 ** dimensions.length) {
+        !Number.isInteger(mask) || mask < 1 || mask > fullMask ||
+        (correlation !== null && (mask !== fullMask || !Number.isFinite(correlation) || Math.abs(correlation) > 1))) {
       throw new Error("Некорректные данные сравнения.");
     }
-    measurements.set(key, { score, mask });
+    measurements.set(key, { score, mask, correlation });
     measuredIds.add(first);
     measuredIds.add(second);
+    if (correlation !== null) {
+      correlationIds.add(first);
+      correlationIds.add(second);
+      correlationCount++;
+    }
   }
-  return { people, measurements, measuredIds };
+  return { people, measurements, measuredIds, correlationIds, correlationCount };
+}
+
+function pearson(first, second) {
+  const average = values => values.reduce((sum, value) => sum + value, 0) / values.length;
+  const meanA = average(first);
+  const meanB = average(second);
+  let cross = 0;
+  let sumA = 0;
+  let sumB = 0;
+  for (let i = 0; i < first.length; i++) {
+    const a = first[i] - meanA;
+    const b = second[i] - meanB;
+    cross += a * b;
+    sumA += a * a;
+    sumB += b * b;
+  }
+  if (!sumA || !sumB) return null;
+  return Math.max(-1, Math.min(1, cross / Math.sqrt(sumA * sumB)));
 }
 
 export function buildSnapshot(rows) {
@@ -62,7 +89,11 @@ export function buildSnapshot(rows) {
         values.some(value => value !== null && (code === null || !Number.isInteger(value) || value < 50 || value > 100))) {
       throw new Error("Ожидаются проценты ведущих букв или пустые значения по пяти шкалам.");
     }
-    return values;
+    return values.map((value, position) => {
+      const { index, pole } = dimensions[position];
+      if (value === null || code[index] === pole) return value;
+      return 100 - value;
+    });
   });
   const measurements = [];
   const reported = people.filter(person => person.code !== null);
@@ -73,22 +104,25 @@ export function buildSnapshot(rows) {
       for (const [position, { index }] of dimensions.entries()) {
         const a = percentages[first.id][position];
         const b = percentages[second.id][position];
-        const samePole = first.code[index] === second.code[index];
         if (a !== null && b !== null) {
           mask |= 1 << position;
-          distance += samePole ? Math.abs(a - b) : a + b - 100;
-        } else if (!samePole) {
+          distance += Math.abs(a - b);
+        } else if (first.code[index] !== second.code[index]) {
           distance += 100;
         }
       }
-      if (mask) measurements.push([first.id, second.id, (100 * dimensions.length - distance) / dimensions.length, mask]);
+      if (!mask) continue;
+      const score = (100 * dimensions.length - distance) / dimensions.length;
+      const measurement = [first.id, second.id, score, mask];
+      if (mask === fullMask) measurement.push(pearson(percentages[first.id], percentages[second.id]));
+      measurements.push(measurement);
     }
   }
   return { profiles, measurements };
 }
 
 export function compare(first, second, measurements) {
-  if (first.code === null || second.code === null) return { axes: [], matches: null, measured: 0, score: null };
+  if (first.code === null || second.code === null) return { axes: [], matches: null, measured: 0, score: null, correlation: null };
   const data = measurements.get(pairKey(first.id, second.id));
   const axes = dimensions.map(({ index, label }, position) => ({
     label,
@@ -98,7 +132,7 @@ export function compare(first, second, measurements) {
   }));
   const matches = axes.filter(axis => axis.first === axis.second).length;
   const measured = axes.filter(axis => axis.measured).length;
-  return { axes, matches, measured, score: data?.score ?? matches * 100 / axes.length };
+  return { axes, matches, measured, score: data?.score ?? matches * 100 / axes.length, correlation: data?.correlation ?? null };
 }
 
 export function profileClusters(people) {

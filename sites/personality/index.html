@@ -29,6 +29,7 @@
         <nav class="view-switch" aria-label="Представление">
           <button type="button" data-view="graph" aria-pressed="true">Граф связей</button>
           <button type="button" data-view="matrix" aria-pressed="false">Матрица пар</button>
+          <button type="button" data-view="correlation" aria-pressed="false">Корреляция</button>
         </nav>
       </div>
 
@@ -66,15 +67,15 @@
             <div><h2 id="matrix-title">Матрица пар</h2><p id="matrix-status" class="meta" aria-live="polite">Выбери ячейку для сравнения.</p></div>
             <div class="filter-row">
               <label>Порядок<select id="matrix-order"><option value="name">По имени</option><option value="type">По типу</option></select></label>
-              <label class="check-filter"><input type="checkbox" id="matrix-measured-only" aria-controls="matrix"> Есть общие проценты</label>
+              <label id="matrix-measured-filter" class="check-filter"><input type="checkbox" id="matrix-measured-only" aria-controls="matrix"> Есть общие проценты</label>
             </div>
           </div>
           <div id="matrix-scroll" class="matrix-scroll" tabindex="0" aria-label="Прокручиваемая матрица пар">
             <table id="matrix" aria-labelledby="matrix-title"></table>
           </div>
           <div id="matrix-footer" class="panel-footer">
-            <span>Сходство</span><div id="matrix-key" class="matrix-key" aria-label="Шкала сходства"></div>
-            <span class="matrix-indicator">Не все шкалы по процентам</span>
+            <span id="matrix-scale-label">Сходство</span><div id="matrix-key" class="matrix-key" aria-label="Шкала сходства"></div>
+            <span id="matrix-indicator" class="matrix-indicator">Не все шкалы по процентам</span>
             <span id="matrix-unrated">— Нет результата теста</span>
           </div>
         </section>
@@ -88,10 +89,15 @@
         </aside>
       </div>
 
-      <details class="site-footer">
+      <details id="similarity-method" class="site-footer">
         <summary>Как считается сходство</summary>
         <p>Оценка — среднее по пяти шкалам, включая A/T. Если у обоих есть проценты, переводим их на одну сторону шкалы и вычитаем разницу из 100. Например, 51% E и 51% I разделяют 2 процентных пункта, поэтому сходство по шкале — 98%. Если процент есть только у одного или отсутствует у обоих, совпавшая буква даёт 100%, разная — 0%.</p>
         <p>Для линии между обводками выбираем пару с наибольшим числом общих процентов, затем с наибольшим сходством. В режиме участника сравниваем именно его. Оценка описывает сходство результатов теста.</p>
+      </details>
+      <details id="correlation-method" class="site-footer" hidden>
+        <summary>Как читать корреляцию</summary>
+        <p>Считаем коэффициент Пирсона по пяти шкалам. Приводим значения к полюсам E, N, T, J и A. Например, 60% I соответствует 40% E.</p>
+        <p>При r ближе к +1 высокие и низкие значения приходятся на одни и те же шкалы. Ближе к −1 высокие значения одного профиля соответствуют низким значениям другого. Значение около 0 указывает на слабую линейную связь по этим пяти шкалам.</p>
       </details>
     </div>
   </main>
