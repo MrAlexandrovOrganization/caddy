@@ -35,8 +35,22 @@ export function readProfiles(records) {
 
 const pairKey = (first, second) => first < second ? `${first}/${second}` : `${second}/${first}`;
 
+function readPercentages(rows, people) {
+  if (!Array.isArray(rows) || rows.length !== people.length) {
+    throw new Error("Проценты должны соответствовать списку участников.");
+  }
+  return rows.map((values, id) => {
+    if (!Array.isArray(values) || values.length !== dimensions.length ||
+        values.some(value => value !== null && (people[id].code === null || !Number.isFinite(value) || value < 50 || value > 100))) {
+      throw new Error("Ожидаются проценты ведущих букв или пустые значения по пяти шкалам.");
+    }
+    return values;
+  });
+}
+
 export function readSnapshot(snapshot) {
   const people = readProfiles(Array.isArray(snapshot) ? snapshot : snapshot?.profiles);
+  const percentages = snapshot.percentages === undefined ? null : readPercentages(snapshot.percentages, people);
   const measurements = new Map();
   const measuredIds = new Set();
   const correlationIds = new Set();
@@ -60,7 +74,7 @@ export function readSnapshot(snapshot) {
       correlationCount++;
     }
   }
-  return { people, measurements, measuredIds, correlationIds, correlationCount };
+  return { people, percentages, measurements, measuredIds, correlationIds, correlationCount };
 }
 
 function pearson(first, second) {
@@ -84,17 +98,14 @@ function pearson(first, second) {
 export function buildSnapshot(rows) {
   const profiles = rows.map(([name, code]) => [name, code]);
   const people = readProfiles(profiles);
-  const percentages = rows.map(([, code, values]) => {
-    if (!Array.isArray(values) || values.length !== dimensions.length ||
-        values.some(value => value !== null && (code === null || !Number.isFinite(value) || value < 50 || value > 100))) {
-      throw new Error("Ожидаются проценты ведущих букв или пустые значения по пяти шкалам.");
-    }
-    return values.map((value, position) => {
+  const percentages = readPercentages(rows.map(([, , values]) => values), people);
+  const normalized = percentages.map((values, id) =>
+    values.map((value, position) => {
       const { index, pole } = dimensions[position];
-      if (value === null || code[index] === pole) return value;
+      if (value === null || people[id].code[index] === pole) return value;
       return 100 - value;
-    });
-  });
+    }),
+  );
   const measurements = [];
   const reported = people.filter(person => person.code !== null);
   for (const [i, first] of reported.entries()) {
@@ -102,8 +113,8 @@ export function buildSnapshot(rows) {
       let distance = 0;
       let mask = 0;
       for (const [position, { index }] of dimensions.entries()) {
-        const a = percentages[first.id][position];
-        const b = percentages[second.id][position];
+        const a = normalized[first.id][position];
+        const b = normalized[second.id][position];
         if (a !== null && b !== null) {
           mask |= 1 << position;
           distance += Math.abs(a - b);
@@ -114,11 +125,11 @@ export function buildSnapshot(rows) {
       if (!mask) continue;
       const score = (100 * dimensions.length - distance) / dimensions.length;
       const measurement = [first.id, second.id, score, mask];
-      if (mask === fullMask) measurement.push(pearson(percentages[first.id], percentages[second.id]));
+      if (mask === fullMask) measurement.push(pearson(normalized[first.id], normalized[second.id]));
       measurements.push(measurement);
     }
   }
-  return { profiles, measurements };
+  return { profiles, measurements, percentages };
 }
 
 export function compare(first, second, measurements) {

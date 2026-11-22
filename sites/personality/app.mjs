@@ -8,6 +8,7 @@ const axisCount = dimensions.length;
 const pluralRules = new Intl.PluralRules("ru");
 const numberFormat = new Intl.NumberFormat("ru", { maximumFractionDigits: 1 });
 const formatScore = score => `${numberFormat.format(score)}%`;
+const sourcePercentFormat = new Intl.NumberFormat("ru", { maximumFractionDigits: 2 });
 const correlationFormat = new Intl.NumberFormat("ru", { maximumFractionDigits: 2, signDisplay: "exceptZero" });
 const participantForms = { one: "участник", few: "участника", many: "участников" };
 const pairForms = { one: "пара", few: "пары", many: "пар" };
@@ -87,7 +88,7 @@ function layoutTeam(views) {
   }])]);
 }
 
-function start({ people, measurements, measuredIds, correlationIds, correlationCount }) {
+function start({ people, percentages, measurements, measuredIds, correlationIds, correlationCount }) {
   const byId = new Map(people.map(person => [person.id, person]));
   const alphabetical = [...people].sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const reported = alphabetical.filter(person => person.code !== null);
@@ -113,6 +114,8 @@ function start({ people, measurements, measuredIds, correlationIds, correlationC
   const edges = element("edges");
   const graphNodes = element("graph-nodes");
   const matrixPanel = element("matrix-panel");
+  const sourcePanel = element("source-panel");
+  const comparison = element("comparison");
   const matrix = element("matrix");
   const threshold = element("threshold");
   const measuredOnly = element("measured-only");
@@ -144,6 +147,34 @@ function start({ people, measurements, measuredIds, correlationIds, correlationC
     `${countLabel(measurements.size, pairForms)} с общими процентами`,
   ].filter(Boolean).join(" · ");
   element("scope").value = state.scope;
+
+  function buildSourceTable() {
+    element("source-status").textContent = percentages
+      ? `${countLabel(people.length, participantForms)} · ${percentages.filter(row => row.some(value => value !== null)).length} с процентами`
+      : "Проценты пока не загружены.";
+    const rows = alphabetical.map(person => {
+      const row = node("tr");
+      const name = node("th", person.name);
+      name.scope = "row";
+      const type = node("td", person.code ?? "—", "source-type");
+      type.toggleAttribute("data-missing", person.code === null);
+      row.append(name, type);
+      for (const [position, { index }] of dimensions.entries()) {
+        const value = percentages?.[person.id][position] ?? null;
+        const cell = node("td");
+        cell.toggleAttribute("data-missing", value === null);
+        if (value === null) {
+          cell.textContent = "—";
+        } else {
+          cell.textContent = `${sourcePercentFormat.format(value)}% `;
+          cell.append(node("span", person.code[index], "source-pole"));
+        }
+        row.append(cell);
+      }
+      return row;
+    });
+    element("source-rows").replaceChildren(...rows);
+  }
 
   function renderPair() {
     const a = byId.get(state.first);
@@ -514,11 +545,15 @@ function start({ people, measurements, measuredIds, correlationIds, correlationC
 
   function setView(view) {
     state.view = view;
+    const showSource = view === "source";
     graph.hidden = view !== "graph";
-    matrixPanel.hidden = view === "graph";
-    element("similarity-method").hidden = view === "correlation";
+    matrixPanel.hidden = view !== "matrix" && view !== "correlation";
+    sourcePanel.hidden = !showSource;
+    comparison.hidden = showSource;
+    element("similarity-method").hidden = view === "correlation" || showSource;
     element("correlation-method").hidden = view !== "correlation";
     for (const button of viewButtons) button.setAttribute("aria-pressed", String(button.dataset.view === view));
+    if (showSource) return;
     renderPair();
     if (view === "graph") renderGraph(true);
     else renderMatrix();
@@ -616,6 +651,7 @@ function start({ people, measurements, measuredIds, correlationIds, correlationC
     stage.classList.remove("dragging");
   });
   new ResizeObserver(() => { if (fitted) fit(); }).observe(stage);
+  buildSourceTable();
   element("workspace").hidden = false;
   setView("graph");
 }

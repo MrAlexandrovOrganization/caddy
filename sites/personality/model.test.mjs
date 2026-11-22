@@ -5,7 +5,8 @@ import { buildSnapshot, compare, connections, profileClusters, readProfiles, rea
 const legacy = [["А", "ENFJ-A"], ["Б", "ENFJ-T"], ["В", "INFJ-A"], ["Г", "ISTP-T"]];
 
 test("letter comparisons use all five axes, including A/T", () => {
-  const { people: [first, second, third], measurements } = readSnapshot(legacy);
+  const { people: [first, second, third], measurements, percentages } = readSnapshot(legacy);
+  assert.equal(percentages, null);
   const pair = compare(first, second, measurements);
   assert.deepEqual([pair.score, pair.matches, pair.measured], [80, 4, 0]);
   assert.deepEqual(pair.axes.at(-1), {
@@ -43,7 +44,8 @@ test("profile correlations use aligned poles, vary separately from similarity, a
     ["Д", "ENTJ-A", [60, 65, 70, 75, null]],
     ["Е", "ENTJ-A", [60, 80, 64, 80, 60]],
   ];
-  const { people: [a, b, c, d, e, f], measurements, correlationIds, correlationCount } = readSnapshot(buildSnapshot(rows));
+  const { people: [a, b, c, d, e, f], measurements, correlationIds, correlationCount, percentages } = readSnapshot(buildSnapshot(rows));
+  assert.deepEqual(percentages, rows.map(([, , values]) => values));
   const sameShape = compare(a, b, measurements);
   assert.deepEqual([sameShape.score, sameShape.correlation], [60, 1]);
   assert.equal(compare(b, a, measurements).correlation, 1);
@@ -56,6 +58,7 @@ test("profile correlations use aligned poles, vary separately from similarity, a
   assert.equal(readSnapshot({ profiles: legacy, measurements: [[0, 1, 90, 31]] }).correlationCount, 0);
   assert.throws(() => readSnapshot({ profiles: legacy, measurements: [[0, 1, 90, 1, .6]] }));
   assert.throws(() => readSnapshot({ profiles: legacy, measurements: [[0, 1, 90, 31, 1.01]] }));
+  assert.throws(() => readSnapshot({ profiles: legacy, percentages: [[80, null, null, null, null]] }));
 });
 
 test("clusters keep identical types together and choose the best-evidenced pair", () => {

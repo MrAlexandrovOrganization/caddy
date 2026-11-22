@@ -30,6 +30,7 @@
           <button type="button" data-view="graph" aria-pressed="true">Граф связей</button>
           <button type="button" data-view="matrix" aria-pressed="false">Матрица пар</button>
           <button type="button" data-view="correlation" aria-pressed="false">Корреляция</button>
+          <button type="button" data-view="source" aria-pressed="false">Исходные данные</button>
         </nav>
       </div>
 
@@ -84,7 +85,30 @@
           </div>
         </section>
 
-        <aside class="comparison" aria-labelledby="compare-title">
+        <section id="source-panel" class="visual-panel source-panel" aria-labelledby="source-title" hidden>
+          <div class="panel-head">
+            <div><h2 id="source-title">Исходные данные</h2><p id="source-status" class="meta"></p></div>
+          </div>
+          <div class="source-scroll" tabindex="0" aria-label="Прокручиваемая таблица результатов">
+            <table class="source-table" aria-labelledby="source-title" aria-describedby="source-note">
+              <thead>
+                <tr>
+                  <th scope="col">Участник</th>
+                  <th scope="col">Тип</th>
+                  <th scope="col">Энергия <small>E / I</small></th>
+                  <th scope="col">Разум <small>N / S</small></th>
+                  <th scope="col">Природа <small>T / F</small></th>
+                  <th scope="col">Тактика <small>J / P</small></th>
+                  <th scope="col">Идентичность <small>A / T</small></th>
+                </tr>
+              </thead>
+              <tbody id="source-rows"></tbody>
+            </table>
+          </div>
+          <p id="source-note" class="panel-footer">Данные из Google Таблицы. Буква рядом с процентом показывает сторону шкалы. Прочерк означает, что значение отсутствует.</p>
+        </section>
+
+        <aside id="comparison" class="comparison" aria-labelledby="compare-title">
           <h2 id="compare-title">Сравнение пары</h2>
           <label>Участник<select id="first"></select></label>
           <label>С кем сравнить<select id="second"></select></label>
