@@ -345,3 +345,18 @@ CI публикует его как artifact. Экспорт содержит я
 `import notes_mobile_vpn notes.example.com 100.64.0.5:18090`.
 Задайте для имени split DNS и A-запись Headscale на VPN-адрес Russia.
 Вход принимает только запросы из VPN к `/mobile/v1/*`. Мобильный API проверяет сессии.
+
+## Notes через VPN
+
+На Russia приватный файл `.runtime/caddy/notes.d/mobile.caddy` подключает
+общий HTTPS-вход Notes.
+
+```caddyfile
+import notes_app_vpn notes.mralexandrov.duckdns.org 100.64.0.5:18090 notes-bot-web:8090
+```
+
+`/mobile/v1/*` идёт на VPN-порт мобильного API. Сайт и вход Telegram Mini App
+идут на `notes-bot-web` через `caddy-net`. Для обоих upstream действует
+`vpn_only`. `make reload` перечитывает приватный файл, сохраняя его при
+обновлении версионируемого Caddyfile. Для отката используйте прежний импорт
+`notes_mobile_vpn` с тем же адресом мобильного API.

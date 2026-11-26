@@ -289,4 +289,17 @@ http://:9180 {
 	}
 }
 
+# Share the Notes hostname while keeping separate web and native API upstreams.
+(notes_app_vpn) {
+	https://{args[0]} {
+		import safe_access notes
+		route {
+			import vpn_only
+			@mobile path /mobile/v1/*
+			reverse_proxy @mobile {args[1]}
+			reverse_proxy {args[2]}
+		}
+	}
+}
+
 import notes.d/*.caddy
