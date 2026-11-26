@@ -177,7 +177,11 @@ def request(container, method, path, token=TOKEN, body=b"", timeout=2):
 def main():
     name = "caddy-location-check-" + uuid.uuid4().hex[:12]
     point = "a0000000-0000-4000-8000-000000000001"
-    ingestion = ["/mobile/locations/" + point, "/mobile/measurements/" + point]
+    ingestion = [
+        "/mobile/locations/" + point,
+        "/mobile/measurements/" + point,
+        "/mobile/ios/locations/" + point,
+    ]
     updates = ["/mobile/app-update", "/mobile/app-update/" + "a" * 64 + ".apk"]
     accepted = (
         [("PUT", p) for p in ingestion]
@@ -245,6 +249,7 @@ def main():
             for verb, prefix, limit in [
                 ("PUT", ingestion[0], 4096),
                 ("PUT", ingestion[1], 65536),
+                ("PUT", ingestion[2], 4096),
                 ("POST", "/mobile/batches", 262144),
             ]:
                 for size, expected in [(limit, 200), (limit + 1, 413)]:
@@ -264,6 +269,9 @@ def main():
                 "/mobile/locations/" + point.upper(),
                 "/mobile/measurements/" + point + "/extra",
                 "/mobile/measurements/not-a-uuid",
+                "/mobile/ios/locations/" + point.upper(),
+                "/mobile/ios/locations/" + point + "/extra",
+                "/mobile/ios/measurements/" + point,
                 "/mobile/batches/",
                 "/mobile/batches/extra",
             ]:

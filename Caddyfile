@@ -192,7 +192,7 @@ https://{$TRANSCRIBER_WORKERS_DOMAIN} {
 		header Cache-Control no-store
 		@mobile_ingestion {
 			method PUT
-			path_regexp location_point "^/mobile/locations/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+			path_regexp location_point "^/mobile(/ios)?/locations/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 		}
 		handle @mobile_ingestion {
 			request_body {
